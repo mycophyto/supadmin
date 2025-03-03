@@ -1,3 +1,4 @@
+
 import { createClient } from '@supabase/supabase-js';
 import { toast } from '@/components/ui/use-toast';
 import { useConfigStore } from '@/store/configStore';
@@ -98,19 +99,62 @@ export async function getTables(): Promise<TableInfo[]> {
   }
   
   try {
-    // In a real implementation with an actual Supabase connection:
-    // 1. Query the information_schema.tables view to get table info
-    // 2. Query to get record counts
-    // For now we'll continue with mock data
-    return getMockTables();
+    // Query the Postgres information_schema to get all tables
+    const { data: tables, error } = await supabase
+      .from('pg_tables')
+      .select('tablename')
+      .eq('schemaname', 'public');
+    
+    if (error) {
+      throw error;
+    }
+    
+    if (!tables || tables.length === 0) {
+      return [];
+    }
+    
+    // Get record counts for each table
+    const tableInfo: TableInfo[] = [];
+    
+    for (const table of tables) {
+      const tableName = table.tablename;
+      
+      // Skip Supabase system tables
+      if (tableName.startsWith('_') || tableName.startsWith('auth_')) {
+        continue;
+      }
+      
+      try {
+        // Get count of records in the table
+        const { count, error: countError } = await supabase
+          .from(tableName)
+          .select('*', { count: 'exact', head: true });
+        
+        if (!countError) {
+          tableInfo.push({
+            name: tableName,
+            recordCount: count || 0
+          });
+        }
+      } catch (e) {
+        console.error(`Error counting records for table ${tableName}:`, e);
+        // Still add the table, just with 0 records
+        tableInfo.push({
+          name: tableName,
+          recordCount: 0
+        });
+      }
+    }
+    
+    return tableInfo;
   } catch (error) {
     console.error('Error fetching tables:', error);
     toast({
       title: 'Error fetching tables',
-      description: 'Unable to load table information.',
+      description: 'Unable to load table information. Falling back to mock data.',
       variant: 'destructive',
     });
-    return [];
+    return getMockTables();
   }
 }
 
@@ -134,18 +178,72 @@ export async function getTableSchema(tableName: string): Promise<TableField[]> {
   }
   
   try {
-    // In a real implementation with an actual Supabase connection:
-    // Query information_schema.columns to get column information
-    return getMockSchema(tableName);
+    // Query the information_schema.columns to get column information
+    const { data: columns, error } = await supabase.rpc('get_table_columns', { 
+      table_name: tableName 
+    });
+    
+    if (error) {
+      // Try fallback if RPC doesn't exist
+      return await getTableSchemaFallback(supabase, tableName);
+    }
+    
+    if (!columns || columns.length === 0) {
+      return [];
+    }
+    
+    // Transform the column data into our TableField format
+    return columns.map((column: any) => ({
+      name: column.column_name,
+      type: column.data_type,
+      required: column.is_nullable === 'NO',
+      isPrimaryKey: column.is_primary_key === true,
+    }));
   } catch (error) {
     console.error(`Error fetching schema for ${tableName}:`, error);
-    toast({
-      title: 'Error fetching schema',
-      description: `Unable to load schema for table ${tableName}.`,
-      variant: 'destructive',
-    });
-    return [];
+    try {
+      // Try fallback method
+      return await getTableSchemaFallback(supabase, tableName);
+    } catch (fallbackError) {
+      toast({
+        title: 'Error fetching schema',
+        description: `Unable to load schema for table ${tableName}. Using mock data.`,
+        variant: 'destructive',
+      });
+      return getMockSchema(tableName);
+    }
   }
+}
+
+// Fallback method to get table schema if RPC is not available
+async function getTableSchemaFallback(supabase: any, tableName: string): Promise<TableField[]> {
+  // Query the information_schema directly
+  const { data: columns, error } = await supabase
+    .from('information_schema.columns')
+    .select('column_name, data_type, is_nullable')
+    .eq('table_name', tableName)
+    .eq('table_schema', 'public');
+  
+  if (error || !columns || columns.length === 0) {
+    throw new Error(`Cannot fetch schema for ${tableName}`);
+  }
+  
+  // Get primary key columns
+  const { data: primaryKeys, error: pkError } = await supabase
+    .from('information_schema.key_column_usage')
+    .select('column_name')
+    .eq('table_name', tableName)
+    .eq('table_schema', 'public')
+    .eq('constraint_name', `${tableName}_pkey`);
+  
+  const pkColumns = pkError || !primaryKeys ? [] : primaryKeys.map((pk: any) => pk.column_name);
+  
+  return columns.map((column: any) => ({
+    name: column.column_name,
+    type: column.data_type,
+    required: column.is_nullable === 'NO',
+    isPrimaryKey: pkColumns.includes(column.column_name),
+  }));
 }
 
 function getMockSchema(tableName: string): TableField[] {
@@ -313,12 +411,100 @@ export async function deleteRecord(tableName: string, id: string) {
 
 // Get statistics about database usage
 export async function getDatabaseStats() {
-  // This would typically come from Supabase's API or a custom endpoint
-  // For now, we'll return mock data
-  return {
-    totalTables: 12,
-    totalRecords: 45231,
-    storageUsed: '1.2 GB',
-    lastUpdated: new Date().toISOString()
-  };
+  const supabase = getSupabaseClient();
+  
+  if (!supabase) {
+    // Return mock data if not configured
+    return {
+      totalTables: 12,
+      totalRecords: 45231,
+      storageUsed: '1.2 GB',
+      lastUpdated: new Date().toISOString()
+    };
+  }
+  
+  try {
+    // Get all tables (excluding system tables)
+    const tables = await getTables();
+    
+    // Calculate total records
+    const totalRecords = tables.reduce((sum, table) => sum + table.recordCount, 0);
+    
+    // Get DB size (this requires a stored procedure or extension in Supabase)
+    let storageUsed = '0 B';
+    
+    try {
+      // Try to get DB size using pg_database_size function
+      const { data: sizeData, error: sizeError } = await supabase.rpc('get_db_size');
+      
+      if (!sizeError && sizeData) {
+        // Convert bytes to human-readable format
+        storageUsed = formatBytes(sizeData);
+      }
+    } catch (sizeError) {
+      console.error('Error getting database size:', sizeError);
+    }
+    
+    return {
+      totalTables: tables.length,
+      totalRecords,
+      storageUsed,
+      lastUpdated: new Date().toISOString()
+    };
+  } catch (error) {
+    console.error('Error getting database stats:', error);
+    toast({
+      title: 'Error fetching database stats',
+      description: 'Could not fetch database statistics. Using mock data.',
+      variant: 'destructive',
+    });
+    
+    // Return mock data as fallback
+    return {
+      totalTables: 12,
+      totalRecords: 45231,
+      storageUsed: '1.2 GB',
+      lastUpdated: new Date().toISOString()
+    };
+  }
+}
+
+// Helper function to format bytes to human-readable format
+function formatBytes(bytes: number, decimals = 2) {
+  if (bytes === 0) return '0 B';
+  
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB', 'TB', 'PB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(decimals)) + ' ' + sizes[i];
+}
+
+// Function to create necessary database functions if they don't exist
+export async function setupDatabaseFunctions() {
+  const supabase = getSupabaseClient();
+  
+  if (!supabase) {
+    return false;
+  }
+  
+  try {
+    // Check if we can create SQL functions (requires admin rights)
+    const { error: functionCheckError } = await supabase.rpc('get_db_size', {});
+    
+    // If the function doesn't exist, try to create it
+    if (functionCheckError && functionCheckError.message.includes('does not exist')) {
+      // Try to create the function to get DB size
+      await supabase.rpc('create_db_size_function');
+      
+      // Try to create the function to get table columns
+      await supabase.rpc('create_table_columns_function');
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Could not set up database functions:', error);
+    // This is expected in many cases where the user doesn't have admin rights
+    return false;
+  }
 }

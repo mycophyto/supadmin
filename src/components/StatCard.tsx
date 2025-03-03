@@ -1,45 +1,39 @@
 
-import { Card } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
+import { Card, CardContent } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface StatCardProps {
   title: string;
   value: string | number;
-  icon: React.ReactNode;
   description?: string;
-  trend?: {
-    value: number;
-    isPositive: boolean;
-  };
-  className?: string;
+  icon?: React.ReactNode;
+  isLoading?: boolean;
 }
 
-export function StatCard({ title, value, icon, description, trend, className }: StatCardProps) {
+export function StatCard({ title, value, description, icon, isLoading = false }: StatCardProps) {
   return (
-    <Card className={cn("p-6 border overflow-hidden relative transition-all duration-300 hover:shadow-elevation group", className)}>
-      <div className="flex justify-between items-start">
-        <div className="space-y-1">
-          <p className="text-sm font-medium text-muted-foreground">{title}</p>
-          <div className="flex items-baseline gap-2">
-            <h3 className="text-2xl font-bold tracking-tight">{value}</h3>
-            {trend && (
-              <span className={cn("text-xs font-medium flex items-center",
-                trend.isPositive ? "text-emerald-500" : "text-rose-500"
-              )}>
-                {trend.isPositive ? '↑' : '↓'} {Math.abs(trend.value)}%
-              </span>
+    <Card>
+      <CardContent className="p-6">
+        <div className="flex items-center justify-between space-x-4">
+          <div className="flex flex-col space-y-2">
+            <p className="text-sm font-medium text-muted-foreground">{title}</p>
+            {isLoading ? (
+              <>
+                <Skeleton className="h-7 w-24" />
+                {description && <Skeleton className="h-4 w-16" />}
+              </>
+            ) : (
+              <>
+                <p className="text-2xl font-bold">{value}</p>
+                {description && (
+                  <p className="text-xs text-muted-foreground">{description}</p>
+                )}
+              </>
             )}
           </div>
-          {description && (
-            <p className="text-xs text-muted-foreground mt-1">{description}</p>
-          )}
+          <div>{icon}</div>
         </div>
-        <div className="bg-primary/10 p-3 rounded-full">
-          {icon}
-        </div>
-      </div>
-
-      <div className="absolute -bottom-1 -right-1 w-24 h-24 bg-primary/5 rounded-full transition-all duration-500 group-hover:scale-150"></div>
+      </CardContent>
     </Card>
   );
 }

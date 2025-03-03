@@ -8,7 +8,7 @@ import {
   Clock,
   BarChart 
 } from 'lucide-react';
-import { getDatabaseStats, getTables } from '@/lib/supabase';
+import { getDatabaseStats, getTables, setupDatabaseFunctions } from '@/lib/supabase';
 import { Sidebar } from '@/components/Sidebar';
 import { StatCard } from '@/components/StatCard';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -31,9 +31,16 @@ export default function Dashboard() {
   });
   
   const [tableStats, setTableStats] = useState<{ name: string; records: number }[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   
   useEffect(() => {
     const loadStats = async () => {
+      setIsLoading(true);
+      
+      // Try to set up any required database functions
+      await setupDatabaseFunctions();
+      
+      // Load database stats and tables
       const dbStats = await getDatabaseStats();
       setStats(dbStats);
       
@@ -42,6 +49,8 @@ export default function Dashboard() {
         name: table.name,
         records: table.recordCount
       })));
+      
+      setIsLoading(false);
     };
     
     loadStats();
@@ -82,22 +91,26 @@ export default function Dashboard() {
                 title="Total Tables" 
                 value={stats.totalTables} 
                 icon={<Table2 className="h-5 w-5 text-primary" />} 
+                isLoading={isLoading}
               />
               <StatCard 
                 title="Total Records" 
                 value={stats.totalRecords.toLocaleString()} 
                 icon={<FileText className="h-5 w-5 text-primary" />} 
+                isLoading={isLoading}
               />
               <StatCard 
                 title="Storage Used" 
                 value={stats.storageUsed} 
                 icon={<Database className="h-5 w-5 text-primary" />} 
+                isLoading={isLoading}
               />
               <StatCard 
                 title="Last Activity" 
                 value={formatDate(stats.lastUpdated).split(',')[0]} 
                 description={formatDate(stats.lastUpdated).split(',')[1]} 
                 icon={<Clock className="h-5 w-5 text-primary" />} 
+                isLoading={isLoading}
               />
             </div>
             
@@ -111,45 +124,51 @@ export default function Dashboard() {
                 </CardHeader>
                 <CardContent>
                   <div className="h-[300px]">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <Chart
-                        data={tableStats}
-                        margin={{
-                          top: 10,
-                          right: 30,
-                          left: 0,
-                          bottom: 30,
-                        }}
-                      >
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                        <XAxis 
-                          dataKey="name" 
-                          tick={{ fontSize: 12 }}
-                          tickLine={false}
-                          axisLine={{ stroke: '#e5e7eb' }}
-                          angle={-45}
-                          textAnchor="end"
-                          height={70}
-                        />
-                        <YAxis 
-                          tick={{ fontSize: 12 }} 
-                          tickLine={false}
-                          axisLine={{ stroke: '#e5e7eb' }}
-                          tickFormatter={(value) => 
-                            value >= 1000 ? `${(value / 1000).toFixed(1)}k` : value
-                          }
-                        />
-                        <Tooltip 
-                          formatter={(value) => [`${value} records`, 'Records']}
-                          contentStyle={{ 
-                            borderRadius: '8px', 
-                            border: '1px solid #e5e7eb',
-                            boxShadow: '0 4px 12px rgba(0,0,0,0.05)'
+                    {isLoading ? (
+                      <div className="h-full w-full flex items-center justify-center">
+                        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary"></div>
+                      </div>
+                    ) : (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <Chart
+                          data={tableStats}
+                          margin={{
+                            top: 10,
+                            right: 30,
+                            left: 0,
+                            bottom: 30,
                           }}
-                        />
-                        <Bar dataKey="records" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-                      </Chart>
-                    </ResponsiveContainer>
+                        >
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                          <XAxis 
+                            dataKey="name" 
+                            tick={{ fontSize: 12 }}
+                            tickLine={false}
+                            axisLine={{ stroke: '#e5e7eb' }}
+                            angle={-45}
+                            textAnchor="end"
+                            height={70}
+                          />
+                          <YAxis 
+                            tick={{ fontSize: 12 }} 
+                            tickLine={false}
+                            axisLine={{ stroke: '#e5e7eb' }}
+                            tickFormatter={(value) => 
+                              value >= 1000 ? `${(value / 1000).toFixed(1)}k` : value
+                            }
+                          />
+                          <Tooltip 
+                            formatter={(value) => [`${value} records`, 'Records']}
+                            contentStyle={{ 
+                              borderRadius: '8px', 
+                              border: '1px solid #e5e7eb',
+                              boxShadow: '0 4px 12px rgba(0,0,0,0.05)'
+                            }}
+                          />
+                          <Bar dataKey="records" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                        </Chart>
+                      </ResponsiveContainer>
+                    )}
                   </div>
                 </CardContent>
               </Card>
