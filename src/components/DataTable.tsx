@@ -12,9 +12,9 @@ import {
   Pagination, 
   PaginationContent, 
   PaginationItem, 
-  PaginationLink, 
   PaginationNext, 
-  PaginationPrevious 
+  PaginationPrevious,
+  PaginationLink
 } from '@/components/ui/pagination';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -35,6 +35,7 @@ import {
 import { Skeleton } from '@/components/ui/skeleton';
 import { updateRecord, deleteRecord } from '@/lib/supabase';
 import { type TableField } from '@/lib/supabase';
+import { useTranslation } from '@/lib/translations';
 
 interface DataTableProps {
   tableName: string;
@@ -62,6 +63,7 @@ export function DataTable({
   onAddNew
 }: DataTableProps) {
   const [searchQuery, setSearchQuery] = useState('');
+  const { t } = useTranslation();
   
   const totalPages = Math.ceil(totalCount / pageSize);
   
@@ -71,7 +73,7 @@ export function DataTable({
   };
   
   const handleDelete = async (id: string) => {
-    if (confirm('Are you sure you want to delete this record?')) {
+    if (confirm(t('confirmDelete'))) {
       await deleteRecord(tableName, id);
       onRefresh();
     }
@@ -89,7 +91,7 @@ export function DataTable({
         <div className="relative w-72">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search..."
+            placeholder={`${t('search')}...`}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-9"
@@ -98,11 +100,11 @@ export function DataTable({
         <div className="flex items-center gap-2">
           <Button onClick={onRefresh} variant="outline" size="sm">
             <RefreshCw className="h-4 w-4 mr-2" />
-            Refresh
+            {t('refresh')}
           </Button>
           <Button onClick={onAddNew} size="sm">
             <Plus className="h-4 w-4 mr-2" />
-            Add New
+            {t('addRecord')}
           </Button>
         </div>
       </div>
@@ -139,7 +141,7 @@ export function DataTable({
               ) : data.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={visibleFields.length + 1} className="h-32 text-center text-muted-foreground">
-                    No records found
+                    {t('noRecords')}
                   </TableCell>
                 </TableRow>
               ) : (
@@ -168,7 +170,7 @@ export function DataTable({
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem onClick={() => handleDelete(row[primaryKeyField])} className="text-destructive">
                             <Trash2 className="h-4 w-4 mr-2" />
-                            Delete
+                            {t('delete')}
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
@@ -185,10 +187,15 @@ export function DataTable({
         <Pagination className="justify-center py-2">
           <PaginationContent>
             <PaginationItem>
-              <PaginationPrevious 
+              <Button 
+                variant="outline"
+                size="icon"
                 onClick={() => onPageChange(Math.max(1, currentPage - 1))}
                 disabled={currentPage === 1}
-              />
+                className="h-9 w-9 p-0"
+              >
+                <PaginationPrevious className="h-4 w-4" />
+              </Button>
             </PaginationItem>
             
             {Array.from({ length: Math.min(5, totalPages) }).map((_, i) => {
@@ -207,21 +214,27 @@ export function DataTable({
               
               return (
                 <PaginationItem key={pageNumber}>
-                  <PaginationLink
-                    isActive={pageNumber === currentPage}
+                  <Button
+                    variant={pageNumber === currentPage ? "default" : "outline"}
                     onClick={() => onPageChange(pageNumber)}
+                    className="h-9 w-9 p-0"
                   >
                     {pageNumber}
-                  </PaginationLink>
+                  </Button>
                 </PaginationItem>
               );
             })}
             
             <PaginationItem>
-              <PaginationNext
+              <Button
+                variant="outline"
+                size="icon"
                 onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
                 disabled={currentPage === totalPages}
-              />
+                className="h-9 w-9 p-0"
+              >
+                <PaginationNext className="h-4 w-4" />
+              </Button>
             </PaginationItem>
           </PaginationContent>
         </Pagination>

@@ -19,10 +19,14 @@ import {
   BreadcrumbSeparator 
 } from '@/components/ui/breadcrumb';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useConfigStore } from '@/store/configStore';
+import { useTranslation } from '@/lib/translations';
 
 export default function TableView() {
   const { tableName } = useParams<{ tableName: string }>();
   const navigate = useNavigate();
+  const { getTableDisplayName } = useConfigStore();
+  const { t } = useTranslation();
   
   const [schema, setSchema] = useState<TableField[]>([]);
   const [data, setData] = useState<any[]>([]);
@@ -72,6 +76,8 @@ export default function TableView() {
     }
   };
   
+  const tableDisplayName = tableName ? getTableDisplayName(tableName) : '';
+  
   if (!tableName) {
     return (
       <div className="flex h-screen bg-background overflow-hidden">
@@ -79,12 +85,12 @@ export default function TableView() {
         <div className="flex-1 overflow-auto p-6">
           <div className="flex flex-col items-center justify-center h-full">
             <Database className="h-16 w-16 text-muted-foreground mb-4" />
-            <h3 className="text-xl font-medium">Table not found</h3>
+            <h3 className="text-xl font-medium">{t('tableNotFound')}</h3>
             <p className="text-muted-foreground mt-1 mb-4">
-              The requested table does not exist
+              {t('tableNotFound')}
             </p>
             <Button onClick={() => navigate('/tables')}>
-              Back to Tables
+              {t('backToTables')}
             </Button>
           </div>
         </div>
@@ -103,15 +109,15 @@ export default function TableView() {
               <Breadcrumb className="mb-2">
                 <BreadcrumbList>
                   <BreadcrumbItem>
-                    <BreadcrumbLink href="/">Dashboard</BreadcrumbLink>
+                    <BreadcrumbLink href="/">{t('dashboard')}</BreadcrumbLink>
                   </BreadcrumbItem>
                   <BreadcrumbSeparator />
                   <BreadcrumbItem>
-                    <BreadcrumbLink href="/tables">Tables</BreadcrumbLink>
+                    <BreadcrumbLink href="/tables">{t('tables')}</BreadcrumbLink>
                   </BreadcrumbItem>
                   <BreadcrumbSeparator />
                   <BreadcrumbItem>
-                    <BreadcrumbLink>{tableName}</BreadcrumbLink>
+                    <BreadcrumbLink>{tableDisplayName}</BreadcrumbLink>
                   </BreadcrumbItem>
                 </BreadcrumbList>
               </Breadcrumb>
@@ -135,13 +141,13 @@ export default function TableView() {
                   ) : (
                     <div>
                       <div className="flex items-center">
-                        <h1 className="text-3xl font-bold tracking-tight">{tableName}</h1>
+                        <h1 className="text-3xl font-bold tracking-tight">{tableDisplayName}</h1>
                         <div className="ml-3 bg-muted px-2 py-1 rounded-md text-xs">
-                          {totalCount.toLocaleString()} records
+                          {totalCount.toLocaleString()} {t('recordsCount')}
                         </div>
                       </div>
                       <p className="text-muted-foreground mt-1">
-                        View and edit records
+                        {t('viewTable')}
                       </p>
                     </div>
                   )}
@@ -150,11 +156,11 @@ export default function TableView() {
                 <div className="flex items-center space-x-2">
                   <Button variant="outline">
                     <TableProperties className="h-4 w-4 mr-2" />
-                    Table Schema
+                    {t('tableSchema')}
                   </Button>
                   <Button onClick={() => setIsFormOpen(true)}>
                     <PlusCircle className="h-4 w-4 mr-2" />
-                    Add Record
+                    {t('addRecord')}
                   </Button>
                 </div>
               </div>

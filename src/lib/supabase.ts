@@ -1,13 +1,41 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { toast } from '@/components/ui/use-toast';
+import { useConfigStore } from '@/store/configStore';
 
-// Initialize Supabase client
-// These will need to be replaced with actual values when connecting to Supabase
-const supabaseUrl = 'https://your-project-url.supabase.co';
-const supabaseKey = 'your-anon-key';
+// Dynamic Supabase client that uses the config from the store
+export function getSupabaseClient() {
+  const { supabaseConfig } = useConfigStore.getState();
+  
+  if (!supabaseConfig.isConfigured) {
+    console.error('Supabase is not configured');
+    return null;
+  }
+  
+  return createClient(supabaseConfig.url, supabaseConfig.key);
+}
 
-export const supabase = createClient(supabaseUrl, supabaseKey);
+// Initialize and test the Supabase connection
+export async function initializeSupabase(url: string, key: string) {
+  try {
+    const tempClient = createClient(url, key);
+    
+    // Test the connection by querying the database version
+    const { error } = await tempClient.from('_database_version').select('*').limit(1);
+    
+    if (error && error.code !== 'PGRST116') {
+      // PGRST116 is "relation does not exist" which is fine, it means we're connected
+      // but the table doesn't exist, which is expected
+      console.error('Supabase connection error:', error);
+      return false;
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Supabase initialization error:', error);
+    return false;
+  }
+}
 
 export interface TableInfo {
   name: string;
@@ -24,18 +52,19 @@ export interface TableField {
 
 // Get all tables in the database
 export async function getTables(): Promise<TableInfo[]> {
+  const supabase = getSupabaseClient();
+  
+  if (!supabase) {
+    // Return mock data if not configured
+    return getMockTables();
+  }
+  
   try {
-    // This is a mock implementation
-    // In a real implementation, you would query Supabase for schema information
-    const mockTables: TableInfo[] = [
-      { name: 'users', description: 'User accounts', recordCount: 1250 },
-      { name: 'products', description: 'Product catalog', recordCount: 432 },
-      { name: 'orders', description: 'Customer orders', recordCount: 6789 },
-      { name: 'categories', description: 'Product categories', recordCount: 24 },
-      { name: 'reviews', description: 'Product reviews', recordCount: 1876 }
-    ];
-    
-    return mockTables;
+    // In a real implementation with an actual Supabase connection:
+    // 1. Query the information_schema.tables view to get table info
+    // 2. Query to get record counts
+    // For now we'll continue with mock data
+    return getMockTables();
   } catch (error) {
     console.error('Error fetching tables:', error);
     toast({
@@ -47,29 +76,29 @@ export async function getTables(): Promise<TableInfo[]> {
   }
 }
 
+function getMockTables(): TableInfo[] {
+  return [
+    { name: 'users', description: 'User accounts', recordCount: 1250 },
+    { name: 'products', description: 'Product catalog', recordCount: 432 },
+    { name: 'orders', description: 'Customer orders', recordCount: 6789 },
+    { name: 'categories', description: 'Product categories', recordCount: 24 },
+    { name: 'reviews', description: 'Product reviews', recordCount: 1876 }
+  ];
+}
+
 // Get a table's schema (field definitions)
 export async function getTableSchema(tableName: string): Promise<TableField[]> {
+  const supabase = getSupabaseClient();
+  
+  if (!supabase) {
+    // Return mock data if not configured
+    return getMockSchema(tableName);
+  }
+  
   try {
-    // This is a mock implementation
-    // In a real implementation, you would query Supabase for schema information
-    const mockSchemas: Record<string, TableField[]> = {
-      users: [
-        { name: 'id', type: 'uuid', required: true, isPrimaryKey: true },
-        { name: 'name', type: 'text', required: true, isPrimaryKey: false },
-        { name: 'email', type: 'text', required: true, isPrimaryKey: false },
-        { name: 'created_at', type: 'timestamp', required: true, isPrimaryKey: false }
-      ],
-      products: [
-        { name: 'id', type: 'uuid', required: true, isPrimaryKey: true },
-        { name: 'name', type: 'text', required: true, isPrimaryKey: false },
-        { name: 'price', type: 'numeric', required: true, isPrimaryKey: false },
-        { name: 'description', type: 'text', required: false, isPrimaryKey: false },
-        { name: 'category_id', type: 'uuid', required: true, isPrimaryKey: false }
-      ],
-      // Add schemas for other tables as needed
-    };
-    
-    return mockSchemas[tableName] || [];
+    // In a real implementation with an actual Supabase connection:
+    // Query information_schema.columns to get column information
+    return getMockSchema(tableName);
   } catch (error) {
     console.error(`Error fetching schema for ${tableName}:`, error);
     toast({
@@ -81,11 +110,37 @@ export async function getTableSchema(tableName: string): Promise<TableField[]> {
   }
 }
 
+function getMockSchema(tableName: string): TableField[] {
+  const mockSchemas: Record<string, TableField[]> = {
+    users: [
+      { name: 'id', type: 'uuid', required: true, isPrimaryKey: true },
+      { name: 'name', type: 'text', required: true, isPrimaryKey: false },
+      { name: 'email', type: 'text', required: true, isPrimaryKey: false },
+      { name: 'created_at', type: 'timestamp', required: true, isPrimaryKey: false }
+    ],
+    products: [
+      { name: 'id', type: 'uuid', required: true, isPrimaryKey: true },
+      { name: 'name', type: 'text', required: true, isPrimaryKey: false },
+      { name: 'price', type: 'numeric', required: true, isPrimaryKey: false },
+      { name: 'description', type: 'text', required: false, isPrimaryKey: false },
+      { name: 'category_id', type: 'uuid', required: true, isPrimaryKey: false }
+    ],
+  };
+  
+  return mockSchemas[tableName] || [];
+}
+
 // Get data from a table
 export async function getTableData(tableName: string, page = 1, pageSize = 10) {
+  const supabase = getSupabaseClient();
+  
+  if (!supabase) {
+    // Return mock data if not configured
+    return { data: [], count: 0 };
+  }
+  
   try {
-    // In a real implementation, this would query actual data from Supabase
-    // with pagination support
+    // With a real Supabase connection, this would be:
     const { data, error, count } = await supabase
       .from(tableName)
       .select('*', { count: 'exact' })
@@ -107,6 +162,17 @@ export async function getTableData(tableName: string, page = 1, pageSize = 10) {
 
 // Update a record in a table
 export async function updateRecord(tableName: string, id: string, data: any) {
+  const supabase = getSupabaseClient();
+  
+  if (!supabase) {
+    toast({
+      title: 'Supabase not configured',
+      description: 'Please configure your Supabase connection in settings.',
+      variant: 'destructive',
+    });
+    return false;
+  }
+  
   try {
     const { error } = await supabase
       .from(tableName)
@@ -134,6 +200,17 @@ export async function updateRecord(tableName: string, id: string, data: any) {
 
 // Create a new record in a table
 export async function createRecord(tableName: string, data: any) {
+  const supabase = getSupabaseClient();
+  
+  if (!supabase) {
+    toast({
+      title: 'Supabase not configured',
+      description: 'Please configure your Supabase connection in settings.',
+      variant: 'destructive',
+    });
+    return false;
+  }
+  
   try {
     const { error } = await supabase
       .from(tableName)
@@ -160,6 +237,17 @@ export async function createRecord(tableName: string, data: any) {
 
 // Delete a record from a table
 export async function deleteRecord(tableName: string, id: string) {
+  const supabase = getSupabaseClient();
+  
+  if (!supabase) {
+    toast({
+      title: 'Supabase not configured',
+      description: 'Please configure your Supabase connection in settings.',
+      variant: 'destructive',
+    });
+    return false;
+  }
+  
   try {
     const { error } = await supabase
       .from(tableName)

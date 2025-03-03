@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { TableField, createRecord, updateRecord } from '@/lib/supabase';
+import { useTranslation } from '@/lib/translations';
 
 interface FormModalProps {
   open: boolean;
@@ -30,6 +31,7 @@ export function FormModal({
   record,
   onSuccess
 }: FormModalProps) {
+  const { t } = useTranslation();
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   
@@ -102,7 +104,7 @@ export function FormModal({
         <form onSubmit={handleSubmit}>
           <DialogHeader>
             <DialogTitle>
-              {record ? `Edit Record` : `Add New Record`}
+              {record ? t('editRecord') : t('addRecord')}
             </DialogTitle>
           </DialogHeader>
           
@@ -147,10 +149,10 @@ export function FormModal({
               variant="outline"
               onClick={() => onOpenChange(false)}
             >
-              Cancel
+              {t('cancel')}
             </Button>
             <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? 'Saving...' : record ? 'Save Changes' : 'Create Record'}
+              {isSubmitting ? t('loading') : record ? t('save') : t('add')}
             </Button>
           </DialogFooter>
         </form>
