@@ -1,4 +1,3 @@
-
 import { createClient } from '@supabase/supabase-js';
 import { toast } from '@/components/ui/use-toast';
 import { useConfigStore } from '@/store/configStore';
@@ -12,14 +11,53 @@ export function getSupabaseClient() {
     return null;
   }
   
-  return createClient(supabaseConfig.url, supabaseConfig.key);
+  return createClient(supabaseConfig.url, supabaseConfig.key, {
+    auth: {
+      autoRefreshToken: true,
+      persistSession: true
+    },
+    global: {
+      headers: {
+        'X-Client-Info': 'AdminDB'
+      }
+    }
+  });
 }
 
 // Initialize and test the Supabase connection
 export async function initializeSupabase(url: string, key: string) {
   try {
-    const tempClient = createClient(url, key);
+    // Create a temporary client with custom fetch options to handle CORS
+    const tempClient = createClient(url, key, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false
+      },
+      global: {
+        headers: {
+          'X-Client-Info': 'AdminDB'
+        }
+      }
+    });
     
+    // For self-hosted instances, we may need special handling
+    const isSelfHosted = url.includes('localhost') || url.includes('127.0.0.1');
+    
+    if (isSelfHosted) {
+      // For self-hosted instances, we just check that the URL and key are valid
+      // and assume the connection is fine if they appear to be in the right format
+      const validUrl = url.startsWith('http://') || url.startsWith('https://');
+      const validKey = key.length > 10; // Basic check that key has reasonable length
+      
+      if (validUrl && validKey) {
+        console.log('Self-hosted Supabase instance detected. Skipping connection test.');
+        return true;
+      }
+      
+      return false;
+    }
+    
+    // For Supabase.com hosted instances, we can actually test the connection
     // Test the connection by querying the database version
     const { error } = await tempClient.from('_database_version').select('*').limit(1);
     

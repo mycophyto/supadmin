@@ -8,9 +8,10 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useConfigStore } from '@/store/configStore';
 import { useTranslation } from '@/lib/translations';
-import { Database, Globe, Server, ChevronRight } from 'lucide-react';
+import { Database, Globe, Server, ChevronRight, AlertCircle } from 'lucide-react';
 import { initializeSupabase } from '@/lib/supabase';
 import { toast } from '@/components/ui/use-toast';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 export function Onboarding() {
   const { t } = useTranslation();
@@ -95,12 +96,21 @@ export function Onboarding() {
               </TabsList>
             </Tabs>
             
+            {hostingType === 'self' && (
+              <Alert>
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  For self-hosted instances, you'll need to configure CORS in your Supabase server to allow requests from this origin. Add '{window.location.origin}' to your allowed origins.
+                </AlertDescription>
+              </Alert>
+            )}
+            
             <div className="space-y-4 pt-2">
               <div className="space-y-2">
                 <Label htmlFor="supabase-url">{t('supabaseUrl')}</Label>
                 <Input
                   id="supabase-url"
-                  placeholder={hostingType === 'supabase' ? "https://your-project.supabase.co" : "http://localhost:8000"}
+                  placeholder={hostingType === 'supabase' ? "https://your-project.supabase.co" : "http://localhost:54321"}
                   value={supabaseUrl}
                   onChange={(e) => setSupabaseUrl(e.target.value)}
                 />
