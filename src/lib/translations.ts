@@ -1,5 +1,6 @@
 
 import { Language } from '@/store/configStore';
+import { useConfigStore } from '@/store/configStore';
 
 type TranslationKey = 
   | 'dashboard'
