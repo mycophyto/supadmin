@@ -94,8 +94,8 @@ export async function getTables(): Promise<TableInfo[]> {
   const supabase = getSupabaseClient();
   
   if (!supabase) {
-    // Return mock data if not configured
-    return getMockTables();
+    console.error('Supabase client not available');
+    return [];
   }
   
   try {
@@ -151,21 +151,11 @@ export async function getTables(): Promise<TableInfo[]> {
     console.error('Error fetching tables:', error);
     toast({
       title: 'Error fetching tables',
-      description: 'Unable to load table information. Falling back to mock data.',
+      description: 'Unable to load table information.',
       variant: 'destructive',
     });
-    return getMockTables();
+    return [];
   }
-}
-
-function getMockTables(): TableInfo[] {
-  return [
-    { name: 'users', description: 'User accounts', recordCount: 1250 },
-    { name: 'products', description: 'Product catalog', recordCount: 432 },
-    { name: 'orders', description: 'Customer orders', recordCount: 6789 },
-    { name: 'categories', description: 'Product categories', recordCount: 24 },
-    { name: 'reviews', description: 'Product reviews', recordCount: 1876 }
-  ];
 }
 
 // Get a table's schema (field definitions)
@@ -173,8 +163,8 @@ export async function getTableSchema(tableName: string): Promise<TableField[]> {
   const supabase = getSupabaseClient();
   
   if (!supabase) {
-    // Return mock data if not configured
-    return getMockSchema(tableName);
+    console.error('Supabase client not available');
+    return [];
   }
   
   try {
@@ -205,12 +195,8 @@ export async function getTableSchema(tableName: string): Promise<TableField[]> {
       // Try fallback method
       return await getTableSchemaFallback(supabase, tableName);
     } catch (fallbackError) {
-      toast({
-        title: 'Error fetching schema',
-        description: `Unable to load schema for table ${tableName}. Using mock data.`,
-        variant: 'destructive',
-      });
-      return getMockSchema(tableName);
+      console.error('Fallback method failed:', fallbackError);
+      return [];
     }
   }
 }
@@ -246,37 +232,16 @@ async function getTableSchemaFallback(supabase: any, tableName: string): Promise
   }));
 }
 
-function getMockSchema(tableName: string): TableField[] {
-  const mockSchemas: Record<string, TableField[]> = {
-    users: [
-      { name: 'id', type: 'uuid', required: true, isPrimaryKey: true },
-      { name: 'name', type: 'text', required: true, isPrimaryKey: false },
-      { name: 'email', type: 'text', required: true, isPrimaryKey: false },
-      { name: 'created_at', type: 'timestamp', required: true, isPrimaryKey: false }
-    ],
-    products: [
-      { name: 'id', type: 'uuid', required: true, isPrimaryKey: true },
-      { name: 'name', type: 'text', required: true, isPrimaryKey: false },
-      { name: 'price', type: 'numeric', required: true, isPrimaryKey: false },
-      { name: 'description', type: 'text', required: false, isPrimaryKey: false },
-      { name: 'category_id', type: 'uuid', required: true, isPrimaryKey: false }
-    ],
-  };
-  
-  return mockSchemas[tableName] || [];
-}
-
 // Get data from a table
 export async function getTableData(tableName: string, page = 1, pageSize = 10) {
   const supabase = getSupabaseClient();
   
   if (!supabase) {
-    // Return mock data if not configured
+    console.error('Supabase client not available');
     return { data: [], count: 0 };
   }
   
   try {
-    // With a real Supabase connection, this would be:
     const { data, error, count } = await supabase
       .from(tableName)
       .select('*', { count: 'exact' })
@@ -414,11 +379,11 @@ export async function getDatabaseStats() {
   const supabase = getSupabaseClient();
   
   if (!supabase) {
-    // Return mock data if not configured
+    console.error('Supabase client not available');
     return {
-      totalTables: 12,
-      totalRecords: 45231,
-      storageUsed: '1.2 GB',
+      totalTables: 0,
+      totalRecords: 0,
+      storageUsed: '0 B',
       lastUpdated: new Date().toISOString()
     };
   }
@@ -455,15 +420,14 @@ export async function getDatabaseStats() {
     console.error('Error getting database stats:', error);
     toast({
       title: 'Error fetching database stats',
-      description: 'Could not fetch database statistics. Using mock data.',
+      description: 'Could not fetch database statistics.',
       variant: 'destructive',
     });
     
-    // Return mock data as fallback
     return {
-      totalTables: 12,
-      totalRecords: 45231,
-      storageUsed: '1.2 GB',
+      totalTables: 0,
+      totalRecords: 0,
+      storageUsed: '0 B',
       lastUpdated: new Date().toISOString()
     };
   }
