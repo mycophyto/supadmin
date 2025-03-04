@@ -1,7 +1,6 @@
-
-import { createClient } from '@supabase/supabase-js';
 import { toast } from '@/components/ui/use-toast';
 import { useConfigStore } from '@/store/configStore';
+import { createClient } from '@supabase/supabase-js';
 
 // Dynamic Supabase client that uses the config from the store
 export function getSupabaseClient() {
@@ -89,6 +88,11 @@ export interface TableField {
   isPrimaryKey: boolean;
 }
 
+interface OpenAPIDefinition {
+  properties?: Record<string, any>;
+  description?: string;
+}
+
 // Get all tables in the database
 export async function getTables(): Promise<TableInfo[]> {
   const supabase = getSupabaseClient();
@@ -99,28 +103,27 @@ export async function getTables(): Promise<TableInfo[]> {
   }
   
   try {
-    // Query the Postgres information_schema to get all tables
-    const { data: tables, error } = await supabase
-      .from('pg_tables')
-      .select('tablename')
-      .eq('schemaname', 'public');
+    // Get the OpenAPI spec from Supabase
+    const { supabaseConfig } = useConfigStore.getState();
+    const response = await fetch(`${supabaseConfig.url}/rest/v1/`, {
+      headers: {
+        'apikey': supabaseConfig.key,
+        'Authorization': `Bearer ${supabaseConfig.key}`
+      }
+    });
     
-    if (error) {
-      throw error;
+    if (!response.ok) {
+      throw new Error(`Failed to fetch OpenAPI spec: ${response.statusText}`);
     }
     
-    if (!tables || tables.length === 0) {
-      return [];
-    }
+    const openApiSpec = await response.json();
     
-    // Get record counts for each table
+    // Get all table definitions from the OpenAPI spec
     const tableInfo: TableInfo[] = [];
     
-    for (const table of tables) {
-      const tableName = table.tablename;
-      
-      // Skip Supabase system tables
-      if (tableName.startsWith('_') || tableName.startsWith('auth_')) {
+    for (const [tableName, tableDef] of Object.entries(openApiSpec.definitions || {}) as [string, OpenAPIDefinition][]) {
+      // Skip system tables and non-table definitions
+      if (tableName.startsWith('_') || tableName.startsWith('auth_') || !tableDef.properties) {
         continue;
       }
       
@@ -133,6 +136,7 @@ export async function getTables(): Promise<TableInfo[]> {
         if (!countError) {
           tableInfo.push({
             name: tableName,
+            description: tableDef.description || undefined,
             recordCount: count || 0
           });
         }
@@ -141,6 +145,7 @@ export async function getTables(): Promise<TableInfo[]> {
         // Still add the table, just with 0 records
         tableInfo.push({
           name: tableName,
+          description: tableDef.description || undefined,
           recordCount: 0
         });
       }
@@ -168,68 +173,54 @@ export async function getTableSchema(tableName: string): Promise<TableField[]> {
   }
   
   try {
-    // Query the information_schema.columns to get column information
-    const { data: columns, error } = await supabase.rpc('get_table_columns', { 
-      table_name: tableName 
+    // Get the OpenAPI spec from Supabase
+    const { supabaseConfig } = useConfigStore.getState();
+    const response = await fetch(`${supabaseConfig.url}/rest/v1/`, {
+      headers: {
+        'apikey': supabaseConfig.key,
+        'Authorization': `Bearer ${supabaseConfig.key}`
+      }
     });
     
-    if (error) {
-      // Try fallback if RPC doesn't exist
-      return await getTableSchemaFallback(supabase, tableName);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch OpenAPI spec: ${response.statusText}`);
     }
     
-    if (!columns || columns.length === 0) {
+    const openApiSpec = await response.json();
+    
+    // Find the table definition in the OpenAPI spec
+    const tableDef = openApiSpec.definitions?.[tableName];
+    if (!tableDef) {
+      console.error(`Table ${tableName} not found in schema`);
       return [];
     }
     
-    // Transform the column data into our TableField format
-    return columns.map((column: any) => ({
-      name: column.column_name,
-      type: column.data_type,
-      required: column.is_nullable === 'NO',
-      isPrimaryKey: column.is_primary_key === true,
-    }));
+    // Transform the OpenAPI schema into our TableField format
+    return Object.entries(tableDef.properties || {}).map(([key, value]: [string, any]) => {
+      // Handle array types
+      const type = value.type === 'array' ? 
+        `${value.items?.type || 'any'}[]` : 
+        value.type;
+      
+      // Handle JSON types
+      const finalType = type === 'object' ? 'jsonb' : type;
+      
+      return {
+        name: key,
+        type: finalType,
+        required: (tableDef.required || []).includes(key),
+        isPrimaryKey: key === 'id' || value.description?.includes('Primary Key'),
+      };
+    });
   } catch (error) {
     console.error(`Error fetching schema for ${tableName}:`, error);
-    try {
-      // Try fallback method
-      return await getTableSchemaFallback(supabase, tableName);
-    } catch (fallbackError) {
-      console.error('Fallback method failed:', fallbackError);
-      return [];
-    }
+    toast({
+      title: 'Error fetching schema',
+      description: `Unable to load schema for table ${tableName}.`,
+      variant: 'destructive',
+    });
+    return [];
   }
-}
-
-// Fallback method to get table schema if RPC is not available
-async function getTableSchemaFallback(supabase: any, tableName: string): Promise<TableField[]> {
-  // Query the information_schema directly
-  const { data: columns, error } = await supabase
-    .from('information_schema.columns')
-    .select('column_name, data_type, is_nullable')
-    .eq('table_name', tableName)
-    .eq('table_schema', 'public');
-  
-  if (error || !columns || columns.length === 0) {
-    throw new Error(`Cannot fetch schema for ${tableName}`);
-  }
-  
-  // Get primary key columns
-  const { data: primaryKeys, error: pkError } = await supabase
-    .from('information_schema.key_column_usage')
-    .select('column_name')
-    .eq('table_name', tableName)
-    .eq('table_schema', 'public')
-    .eq('constraint_name', `${tableName}_pkey`);
-  
-  const pkColumns = pkError || !primaryKeys ? [] : primaryKeys.map((pk: any) => pk.column_name);
-  
-  return columns.map((column: any) => ({
-    name: column.column_name,
-    type: column.data_type,
-    required: column.is_nullable === 'NO',
-    isPrimaryKey: pkColumns.includes(column.column_name),
-  }));
 }
 
 // Get data from a table
