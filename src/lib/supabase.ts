@@ -1,27 +1,14 @@
 import { toast } from '@/components/ui/use-toast';
 import { useConfigStore } from '@/store/configStore';
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-// Dynamic Supabase client that uses the config from the store
+let supabaseClient: SupabaseClient | null = null;
+
 export function getSupabaseClient() {
-  const { supabaseConfig } = useConfigStore.getState();
-  
-  if (!supabaseConfig.isConfigured) {
-    console.error('Supabase is not configured');
-    return null;
+  if (!supabaseClient) {
+    throw new Error('Supabase client not initialized. Call initializeSupabase first.');
   }
-  
-  return createClient(supabaseConfig.url, supabaseConfig.key, {
-    auth: {
-      autoRefreshToken: true,
-      persistSession: true
-    },
-    global: {
-      headers: {
-        'X-Client-Info': 'AdminDB'
-      }
-    }
-  });
+  return supabaseClient;
 }
 
 // Initialize and test the Supabase connection
@@ -51,6 +38,8 @@ export async function initializeSupabase(url: string, key: string) {
       
       if (validUrl && validKey) {
         console.log('Self-hosted Supabase instance detected. Skipping connection test.');
+        supabaseClient = tempClient;
+        // Skip database function setup for self-hosted instances
         return true;
       }
       
@@ -58,14 +47,22 @@ export async function initializeSupabase(url: string, key: string) {
     }
     
     // For Supabase.com hosted instances, we can actually test the connection
-    // Test the connection by querying the database version
-    const { error } = await tempClient.from('_database_version').select('*').limit(1);
+    // Test the connection by trying to access the auth config (this should always exist)
+    const { error } = await tempClient.auth.getSession();
     
-    if (error && error.code !== 'PGRST116') {
-      // PGRST116 is "relation does not exist" which is fine, it means we're connected
-      // but the table doesn't exist, which is expected
+    if (error) {
       console.error('Supabase connection error:', error);
       return false;
+    }
+    
+    supabaseClient = tempClient;
+    
+    // Try to set up database functions
+    try {
+      await setupDatabaseFunctions();
+    } catch (setupError) {
+      console.warn('Could not set up database functions:', setupError);
+      // Continue anyway as this is not critical
     }
     
     return true;
@@ -96,69 +93,112 @@ interface OpenAPIDefinition {
 // Get all tables in the database
 export async function getTables(): Promise<TableInfo[]> {
   const supabase = getSupabaseClient();
-  
-  if (!supabase) {
-    console.error('Supabase client not available');
-    return [];
-  }
+  const { supabaseConfig } = useConfigStore.getState();
+  const isSelfHosted = supabaseConfig.url.includes('localhost') || supabaseConfig.url.includes('127.0.0.1');
   
   try {
-    // Get the OpenAPI spec from Supabase
-    const { supabaseConfig } = useConfigStore.getState();
-    const response = await fetch(`${supabaseConfig.url}/rest/v1/`, {
-      headers: {
-        'apikey': supabaseConfig.key,
-        'Authorization': `Bearer ${supabaseConfig.key}`
+    if (!isSelfHosted) {
+      // Try RPC first for hosted instances
+      const { data, error } = await supabase
+        .rpc('get_tables', {
+          schema_name: 'public'
+        });
+
+      if (!error && data) {
+        return data.map((table: any) => ({
+          name: table.table_name,
+          description: table.description || '',
+          recordCount: table.record_count || 0,
+        }));
       }
-    });
-    
-    if (!response.ok) {
-      throw new Error(`Failed to fetch OpenAPI spec: ${response.statusText}`);
     }
-    
-    const openApiSpec = await response.json();
-    
-    // Get all table definitions from the OpenAPI spec
-    const tableInfo: TableInfo[] = [];
-    
-    for (const [tableName, tableDef] of Object.entries(openApiSpec.definitions || {}) as [string, OpenAPIDefinition][]) {
-      // Skip system tables and non-table definitions
-      if (tableName.startsWith('_') || tableName.startsWith('auth_') || !tableDef.properties) {
-        continue;
+
+    // For self-hosted instances, use a direct query to information_schema
+    const { data: tables, error: queryError } = await supabase
+      .from('information_schema.tables')
+      .select('table_name')
+      .eq('table_schema', 'public')
+      .neq('table_type', 'VIEW')
+      .not('table_name', 'like', 'pg_%')
+      .not('table_name', 'like', '_prisma_%')
+      .not('table_name', 'like', 'information_%');
+
+    if (queryError) {
+      console.error('Error fetching tables:', queryError);
+      
+      // Try an alternative approach using the REST API directly
+      const response = await fetch(`${supabaseConfig.url}/rest/v1/`, {
+        headers: {
+          'apikey': supabaseConfig.key,
+          'Authorization': `Bearer ${supabaseConfig.key}`
+        }
+      });
+      
+      if (!response.ok) {
+        console.error('Error fetching schema:', response.statusText);
+        return [];
       }
       
-      try {
-        // Get count of records in the table
-        const { count, error: countError } = await supabase
-          .from(tableName)
-          .select('*', { count: 'exact', head: true });
-        
-        if (!countError) {
-          tableInfo.push({
-            name: tableName,
-            description: tableDef.description || undefined,
-            recordCount: count || 0
-          });
-        }
-      } catch (e) {
-        console.error(`Error counting records for table ${tableName}:`, e);
-        // Still add the table, just with 0 records
-        tableInfo.push({
-          name: tableName,
-          description: tableDef.description || undefined,
-          recordCount: 0
-        });
-      }
+      const schema = await response.json();
+      const tableNames = Object.keys(schema.definitions || {})
+        .filter(name => !name.startsWith('pg_') && 
+                       !name.startsWith('_prisma_') && 
+                       !name.startsWith('information_'));
+      
+      // Map the results
+      const tableInfos = await Promise.all(
+        tableNames.map(async (tableName) => {
+          try {
+            const { count } = await supabase
+              .from(tableName)
+              .select('*', { count: 'exact', head: true });
+
+            return {
+              name: tableName,
+              description: '',
+              recordCount: count || 0,
+            };
+          } catch (countError) {
+            console.error(`Error counting records for ${tableName}:`, countError);
+            return {
+              name: tableName,
+              description: '',
+              recordCount: 0,
+            };
+          }
+        })
+      );
+
+      return tableInfos;
     }
-    
-    return tableInfo;
+
+    // Map the results from information_schema query
+    const tableInfos = await Promise.all(
+      (tables || []).map(async (table: { table_name: string }) => {
+        try {
+          const { count } = await supabase
+            .from(table.table_name)
+            .select('*', { count: 'exact', head: true });
+
+          return {
+            name: table.table_name,
+            description: '',
+            recordCount: count || 0,
+          };
+        } catch (countError) {
+          console.error(`Error counting records for ${table.table_name}:`, countError);
+          return {
+            name: table.table_name,
+            description: '',
+            recordCount: 0,
+          };
+        }
+      })
+    );
+
+    return tableInfos;
   } catch (error) {
     console.error('Error fetching tables:', error);
-    toast({
-      title: 'Error fetching tables',
-      description: 'Unable to load table information.',
-      variant: 'destructive',
-    });
     return [];
   }
 }
@@ -166,11 +206,6 @@ export async function getTables(): Promise<TableInfo[]> {
 // Get a table's schema (field definitions)
 export async function getTableSchema(tableName: string): Promise<TableField[]> {
   const supabase = getSupabaseClient();
-  
-  if (!supabase) {
-    console.error('Supabase client not available');
-    return [];
-  }
   
   try {
     // Get the OpenAPI spec from Supabase
@@ -227,11 +262,6 @@ export async function getTableSchema(tableName: string): Promise<TableField[]> {
 export async function getTableData(tableName: string, page = 1, pageSize = 10) {
   const supabase = getSupabaseClient();
   
-  if (!supabase) {
-    console.error('Supabase client not available');
-    return { data: [], count: 0 };
-  }
-  
   try {
     const { data, error, count } = await supabase
       .from(tableName)
@@ -255,15 +285,6 @@ export async function getTableData(tableName: string, page = 1, pageSize = 10) {
 // Update a record in a table
 export async function updateRecord(tableName: string, id: string, data: any) {
   const supabase = getSupabaseClient();
-  
-  if (!supabase) {
-    toast({
-      title: 'Supabase not configured',
-      description: 'Please configure your Supabase connection in settings.',
-      variant: 'destructive',
-    });
-    return false;
-  }
   
   try {
     const { error } = await supabase
@@ -294,15 +315,6 @@ export async function updateRecord(tableName: string, id: string, data: any) {
 export async function createRecord(tableName: string, data: any) {
   const supabase = getSupabaseClient();
   
-  if (!supabase) {
-    toast({
-      title: 'Supabase not configured',
-      description: 'Please configure your Supabase connection in settings.',
-      variant: 'destructive',
-    });
-    return false;
-  }
-  
   try {
     const { error } = await supabase
       .from(tableName)
@@ -330,15 +342,6 @@ export async function createRecord(tableName: string, data: any) {
 // Delete a record from a table
 export async function deleteRecord(tableName: string, id: string) {
   const supabase = getSupabaseClient();
-  
-  if (!supabase) {
-    toast({
-      title: 'Supabase not configured',
-      description: 'Please configure your Supabase connection in settings.',
-      variant: 'destructive',
-    });
-    return false;
-  }
   
   try {
     const { error } = await supabase
@@ -368,16 +371,7 @@ export async function deleteRecord(tableName: string, id: string) {
 // Get statistics about database usage
 export async function getDatabaseStats() {
   const supabase = getSupabaseClient();
-  
-  if (!supabase) {
-    console.error('Supabase client not available');
-    return {
-      totalTables: 0,
-      totalRecords: 0,
-      storageUsed: '0 B',
-      lastUpdated: new Date().toISOString()
-    };
-  }
+  const { supabaseConfig } = useConfigStore.getState();
   
   try {
     // Get all tables (excluding system tables)
@@ -386,25 +380,14 @@ export async function getDatabaseStats() {
     // Calculate total records
     const totalRecords = tables.reduce((sum, table) => sum + table.recordCount, 0);
     
-    // Get DB size (this requires a stored procedure or extension in Supabase)
-    let storageUsed = '0 B';
-    
-    try {
-      // Try to get DB size using pg_database_size function
-      const { data: sizeData, error: sizeError } = await supabase.rpc('get_db_size');
-      
-      if (!sizeError && sizeData) {
-        // Convert bytes to human-readable format
-        storageUsed = formatBytes(sizeData);
-      }
-    } catch (sizeError) {
-      console.error('Error getting database size:', sizeError);
-    }
+    // For self-hosted instances, we'll skip the DB size calculation
+    const isSelfHosted = supabaseConfig.url.includes('localhost') || 
+                        supabaseConfig.url.includes('127.0.0.1');
     
     return {
       totalTables: tables.length,
       totalRecords,
-      storageUsed,
+      storageUsed: isSelfHosted ? 'N/A' : '0 B',
       lastUpdated: new Date().toISOString()
     };
   } catch (error) {
@@ -418,7 +401,7 @@ export async function getDatabaseStats() {
     return {
       totalTables: 0,
       totalRecords: 0,
-      storageUsed: '0 B',
+      storageUsed: 'N/A',
       lastUpdated: new Date().toISOString()
     };
   }
@@ -438,28 +421,166 @@ function formatBytes(bytes: number, decimals = 2) {
 // Function to create necessary database functions if they don't exist
 export async function setupDatabaseFunctions() {
   const supabase = getSupabaseClient();
+  const { supabaseConfig } = useConfigStore.getState();
+  const isSelfHosted = supabaseConfig.url.includes('localhost') || supabaseConfig.url.includes('127.0.0.1');
   
-  if (!supabase) {
-    return false;
+  // Skip function creation for self-hosted instances
+  if (isSelfHosted) {
+    console.log('Self-hosted instance detected, skipping database function setup');
+    return true;
   }
   
   try {
-    // Check if we can create SQL functions (requires admin rights)
-    const { error: functionCheckError } = await supabase.rpc('get_db_size', {});
-    
-    // If the function doesn't exist, try to create it
-    if (functionCheckError && functionCheckError.message.includes('does not exist')) {
-      // Try to create the function to get DB size
-      await supabase.rpc('create_db_size_function');
-      
-      // Try to create the function to get table columns
-      await supabase.rpc('create_table_columns_function');
+    // Create the get_tables function
+    const createGetTablesFunction = `
+      CREATE OR REPLACE FUNCTION get_tables(schema_name text)
+      RETURNS TABLE (
+        table_name text,
+        description text,
+        record_count bigint
+      )
+      LANGUAGE plpgsql
+      SECURITY DEFINER
+      AS $$
+      BEGIN
+        RETURN QUERY
+        SELECT
+          tables.tablename::text as table_name,
+          obj_description(format('%I.%I', tables.schemaname, tables.tablename)::regclass, 'pg_class') as description,
+          (SELECT reltuples::bigint FROM pg_class WHERE oid = format('%I.%I', tables.schemaname, tables.tablename)::regclass) as record_count
+        FROM pg_catalog.pg_tables tables
+        WHERE tables.schemaname = schema_name
+        AND tables.tablename NOT LIKE 'pg_%'
+        AND tables.tablename NOT LIKE '_prisma_%'
+        AND tables.tablename NOT LIKE 'information_%';
+      END;
+      $$;
+    `;
+
+    const { error: functionError } = await supabase.rpc('create_function', {
+      function_name: 'get_tables',
+      function_body: createGetTablesFunction
+    });
+
+    if (functionError && !functionError.message.includes('already exists')) {
+      console.error('Error creating get_tables function:', functionError);
     }
     
     return true;
   } catch (error) {
     console.error('Could not set up database functions:', error);
     // This is expected in many cases where the user doesn't have admin rights
-    return false;
+    return true; // Return true anyway to allow the app to continue
+  }
+}
+
+export async function createSettingsTable(): Promise<void> {
+  const supabase = getSupabaseClient();
+  const { supabaseConfig } = useConfigStore.getState();
+  const isSelfHosted = supabaseConfig.url.includes('localhost') || supabaseConfig.url.includes('127.0.0.1');
+  
+  try {
+    if (isSelfHosted) {
+      // For self-hosted instances, check if table exists first
+      const { data: existingTable } = await supabase
+        .from('app_settings')
+        .select('id')
+        .limit(1);
+
+      // If we can query the table, it exists
+      if (existingTable !== null) {
+        return;
+      }
+
+      // If we get here, we need to create the table
+      // Try using the Supabase SQL editor endpoint
+      const response = await fetch(`${supabaseConfig.url}/rest/v1/sql`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': supabaseConfig.key,
+          'Authorization': `Bearer ${supabaseConfig.key}`,
+          'Prefer': 'resolution=merge-duplicates'
+        },
+        body: JSON.stringify({
+          query: `
+            CREATE TABLE IF NOT EXISTS app_settings (
+              id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+              key text NOT NULL UNIQUE,
+              value jsonb NOT NULL,
+              created_at timestamptz NOT NULL DEFAULT now(),
+              updated_at timestamptz NOT NULL DEFAULT now()
+            );
+
+            CREATE OR REPLACE FUNCTION update_updated_at_column()
+            RETURNS TRIGGER AS $$
+            BEGIN
+              NEW.updated_at = now();
+              RETURN NEW;
+            END;
+            $$ language 'plpgsql';
+
+            DROP TRIGGER IF EXISTS update_app_settings_updated_at ON app_settings;
+            CREATE TRIGGER update_app_settings_updated_at
+              BEFORE UPDATE ON app_settings
+              FOR EACH ROW
+              EXECUTE FUNCTION update_updated_at_column();
+          `
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to create settings table: ${response.statusText}`);
+      }
+
+      return;
+    }
+    
+    // For hosted instances, use RPC
+    const { error: tableError } = await supabase.rpc('create_table', {
+      table_name: 'app_settings',
+      columns: [
+        { name: 'id', type: 'uuid', primary_key: true, default: 'uuid_generate_v4()' },
+        { name: 'key', type: 'text', not_null: true, unique: true },
+        { name: 'value', type: 'jsonb', not_null: true },
+        { name: 'created_at', type: 'timestamptz', not_null: true, default: 'now()' },
+        { name: 'updated_at', type: 'timestamptz', not_null: true, default: 'now()' }
+      ]
+    });
+
+    if (tableError) throw tableError;
+
+    // Create the trigger function
+    const { error: functionError } = await supabase.rpc('create_function', {
+      function_name: 'update_updated_at_column',
+      function_body: `
+        CREATE OR REPLACE FUNCTION update_updated_at_column()
+        RETURNS TRIGGER AS $$
+        BEGIN
+          NEW.updated_at = now();
+          RETURN NEW;
+        END;
+        $$ language 'plpgsql';
+      `
+    });
+
+    if (functionError && !functionError.message.includes('already exists')) {
+      console.warn('Error creating trigger function:', functionError);
+    }
+
+    // Create the trigger
+    const { error: triggerError } = await supabase.rpc('create_trigger', {
+      trigger_name: 'update_app_settings_updated_at',
+      table_name: 'app_settings',
+      function_name: 'update_updated_at_column',
+      trigger_type: 'BEFORE UPDATE'
+    });
+
+    if (triggerError && !triggerError.message.includes('already exists')) {
+      console.warn('Error creating trigger:', triggerError);
+    }
+  } catch (error) {
+    console.error('Error creating settings table:', error);
+    throw error;
   }
 }

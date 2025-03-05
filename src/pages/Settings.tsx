@@ -1,23 +1,22 @@
-
-import { useState } from 'react';
 import { Sidebar } from '@/components/Sidebar';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
 } from '@/components/ui/select';
-import { useConfigStore, Language } from '@/store/configStore';
-import { useTranslation } from '@/lib/translations';
-import { getTables } from '@/lib/supabase';
-import { Globe, Pencil, Database } from 'lucide-react';
 import { toast } from '@/components/ui/use-toast';
+import { getTables } from '@/lib/supabase';
+import { useTranslation } from '@/lib/translations';
+import { Language, useConfigStore } from '@/store/configStore';
 import { useQuery } from '@tanstack/react-query';
+import { Database, Eye, EyeOff, Globe, Pencil } from 'lucide-react';
+import { useState } from 'react';
 
 export default function Settings() {
   const { t } = useTranslation();
@@ -25,7 +24,9 @@ export default function Settings() {
     language, 
     setLanguage, 
     tableDisplayNames, 
-    setTableDisplayName, 
+    setTableDisplayName,
+    hiddenTables,
+    setHiddenTable,
     supabaseConfig,
     clearSupabaseConfig
   } = useConfigStore();
@@ -41,10 +42,10 @@ export default function Settings() {
     setLanguage(value as Language);
     
     toast({
-      title: value === 'en' ? 'Language updated' : 'Langue mise à jour',
+      title: value === 'en' ? t('language') + ' updated' : t('language') + ' mise à jour',
       description: value === 'en' 
-        ? 'The interface will now be displayed in English' 
-        : 'L\'interface sera maintenant affichée en français',
+        ? t('chooseLanguage')
+        : t('chooseLanguage'),
     });
   };
   
@@ -64,9 +65,17 @@ export default function Settings() {
       description: `${tableName} → ${displayName}`,
     });
   };
+
+  const handleVisibilityToggle = (tableName: string) => {
+    setHiddenTable(tableName, !hiddenTables.includes(tableName));
+    toast({
+      title: hiddenTables.includes(tableName) ? t('showTable') : t('hideTable'),
+      description: tableName,
+    });
+  };
   
   const handleDisconnect = () => {
-    if (confirm('Are you sure you want to disconnect from Supabase?')) {
+    if (confirm(t('confirmDelete'))) {
       clearSupabaseConfig();
       window.location.href = '/onboarding';
     }
@@ -89,9 +98,7 @@ export default function Settings() {
                     {t('language')}
                   </CardTitle>
                   <CardDescription>
-                    {language === 'en' 
-                      ? 'Choose your preferred language' 
-                      : 'Choisissez votre langue préférée'}
+                    {t('chooseLanguage')}
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -135,7 +142,7 @@ export default function Settings() {
                         className="w-full"
                         onClick={handleDisconnect}
                       >
-                        Disconnect
+                        {t('disconnect')}
                       </Button>
                     ) : (
                       <Button 
@@ -149,17 +156,15 @@ export default function Settings() {
                 </CardContent>
               </Card>
             </div>
-            
+
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center text-lg">
-                  <Pencil className="h-5 w-5 mr-2" />
-                  {t('customizeTableNames')}
+                  <Database className="h-5 w-5 mr-2" />
+                  {t('tables')}
                 </CardTitle>
                 <CardDescription>
-                  {language === 'en' 
-                    ? 'Customize how table names are displayed in the interface' 
-                    : 'Personnalisez l\'affichage des noms de tables dans l\'interface'}
+                  {t('customizeTableNamesDescription')}
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -171,11 +176,10 @@ export default function Settings() {
                   <div className="space-y-4">
                     {tables.map((table) => (
                       <div key={table.name} className="flex items-center justify-between space-x-2">
-                        <div className="font-medium">{table.name}</div>
-                        {editMode[table.name] ? (
-                          <div className="flex items-center space-x-2">
+                        <div className="flex-1">
+                          {editMode[table.name] ? (
                             <Input
-                              className="w-40"
+                              className="w-full"
                               defaultValue={tableDisplayNames[table.name] || table.name}
                               autoFocus
                               onKeyDown={(e) => {
@@ -187,34 +191,39 @@ export default function Settings() {
                                 }
                               }}
                             />
-                            <Button 
-                              size="sm"
-                              onClick={(e) => {
-                                const input = (e.target as HTMLElement)
-                                  .closest('.flex')
-                                  ?.querySelector('input');
-                                if (input) {
-                                  handleDisplayNameChange(table.name, input.value);
-                                }
-                              }}
-                            >
-                              {t('save')}
-                            </Button>
-                          </div>
-                        ) : (
-                          <div className="flex items-center space-x-2">
-                            <div className="text-muted-foreground">
-                              {tableDisplayNames[table.name] || table.name}
+                          ) : (
+                            <div className="flex items-center space-x-2">
+                              <div className="font-medium">
+                                {tableDisplayNames[table.name] || table.name}
+                              </div>
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                onClick={() => toggleEditMode(table.name)}
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
                             </div>
-                            <Button 
-                              variant="ghost" 
-                              size="sm"
-                              onClick={() => toggleEditMode(table.name)}
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        )}
+                          )}
+                        </div>
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => handleVisibilityToggle(table.name)}
+                          className="flex items-center gap-2"
+                        >
+                          {hiddenTables.includes(table.name) ? (
+                            <>
+                              <EyeOff className="h-4 w-4" />
+                              {t('showTable')}
+                            </>
+                          ) : (
+                            <>
+                              <Eye className="h-4 w-4" />
+                              {t('hideTable')}
+                            </>
+                          )}
+                        </Button>
                       </div>
                     ))}
                   </div>

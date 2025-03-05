@@ -1,8 +1,8 @@
-
-import { useState, useEffect, useRef } from 'react';
 import { Input } from '@/components/ui/input';
-import { Pencil, Check, X } from 'lucide-react';
+import { useTranslation } from '@/lib/translations';
 import { cn } from '@/lib/utils';
+import { Check, Pencil, X } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 
 interface EditableCellProps {
   value: string;
@@ -14,6 +14,7 @@ export function EditableCell({ value, onChange, type = 'text' }: EditableCellPro
   const [isEditing, setIsEditing] = useState(false);
   const [tempValue, setTempValue] = useState(value);
   const inputRef = useRef<HTMLInputElement>(null);
+  const { t } = useTranslation();
 
   useEffect(() => {
     setTempValue(value);
@@ -76,7 +77,7 @@ export function EditableCell({ value, onChange, type = 'text' }: EditableCellPro
   return (
     <div className="group relative flex items-center">
       <div className={cn("flex-1 text-sm", !value && "text-muted-foreground italic")}>
-        {value || 'Empty'}
+        {value || t('emptyValue')}
       </div>
       <button
         onClick={() => setIsEditing(true)}

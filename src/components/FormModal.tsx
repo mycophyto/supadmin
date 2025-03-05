@@ -1,18 +1,17 @@
-
-import { useState, useEffect } from 'react';
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import {
+    Dialog,
+    DialogContent,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { TableField, createRecord, updateRecord } from '@/lib/supabase';
 import { useTranslation } from '@/lib/translations';
+import { useEffect, useState } from 'react';
 
 interface FormModalProps {
   open: boolean;
@@ -136,7 +135,7 @@ export function FormModal({
                     />
                   )}
                   <p className="text-xs text-muted-foreground mt-1">
-                    {field.type} {field.isPrimaryKey ? '(Primary Key)' : ''}
+                    {t('fieldType')}: {field.type} {field.isPrimaryKey ? `(${t('primaryKey')})` : ''}
                   </p>
                 </div>
               </div>

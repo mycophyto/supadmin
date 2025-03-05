@@ -1,25 +1,25 @@
-
-import { useEffect, useState } from 'react';
-import { 
-  LayoutDashboard, 
-  Database, 
-  Table2, 
-  FileText, 
-  Clock,
-  BarChart 
-} from 'lucide-react';
-import { getDatabaseStats, getTables, setupDatabaseFunctions } from '@/lib/supabase';
 import { Sidebar } from '@/components/Sidebar';
 import { StatCard } from '@/components/StatCard';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { getDatabaseStats, getTables, setupDatabaseFunctions } from '@/lib/supabase';
+import { useTranslation } from '@/lib/translations';
 import {
-  BarChart as Chart,
+  BarChart,
+  Clock,
+  Database,
+  FileText,
+  LayoutDashboard,
+  Table2
+} from 'lucide-react';
+import { useEffect, useState } from 'react';
+import {
   Bar,
+  CartesianGrid,
+  BarChart as Chart,
+  ResponsiveContainer,
+  Tooltip,
   XAxis,
   YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
 } from 'recharts';
 
 export default function Dashboard() {
@@ -32,6 +32,7 @@ export default function Dashboard() {
   
   const [tableStats, setTableStats] = useState<{ name: string; records: number }[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const { t } = useTranslation();
   
   useEffect(() => {
     const loadStats = async () => {
@@ -80,33 +81,33 @@ export default function Dashboard() {
         <main className="p-6 pt-4">
           <div className="space-y-6">
             <div className="flex items-center justify-between">
-              <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+              <h1 className="text-3xl font-bold tracking-tight">{t('dashboard')}</h1>
               <div className="text-sm text-muted-foreground">
-                Last updated: {formatDate(stats.lastUpdated)}
+                {t('lastActivity')}: {formatDate(stats.lastUpdated)}
               </div>
             </div>
             
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
               <StatCard 
-                title="Total Tables" 
+                title={t('totalTables')} 
                 value={stats.totalTables} 
                 icon={<Table2 className="h-5 w-5 text-primary" />} 
                 isLoading={isLoading}
               />
               <StatCard 
-                title="Total Records" 
+                title={t('totalRecords')} 
                 value={stats.totalRecords.toLocaleString()} 
                 icon={<FileText className="h-5 w-5 text-primary" />} 
                 isLoading={isLoading}
               />
               <StatCard 
-                title="Storage Used" 
+                title={t('storageUsed')} 
                 value={stats.storageUsed} 
                 icon={<Database className="h-5 w-5 text-primary" />} 
                 isLoading={isLoading}
               />
               <StatCard 
-                title="Last Activity" 
+                title={t('lastActivity')} 
                 value={formatDate(stats.lastUpdated).split(',')[0]} 
                 description={formatDate(stats.lastUpdated).split(',')[1]} 
                 icon={<Clock className="h-5 w-5 text-primary" />} 
@@ -119,7 +120,7 @@ export default function Dashboard() {
                 <CardHeader>
                   <CardTitle className="flex items-center text-lg font-medium">
                     <BarChart className="h-5 w-5 mr-2" />
-                    Records by Table
+                    {t('recordsByTable')}
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -158,7 +159,7 @@ export default function Dashboard() {
                             }
                           />
                           <Tooltip 
-                            formatter={(value) => [`${value} records`, 'Records']}
+                            formatter={(value) => [`${value} ${t('recordsCount')}`, t('recordsCount')]}
                             contentStyle={{ 
                               borderRadius: '8px', 
                               border: '1px solid #e5e7eb',
@@ -177,7 +178,7 @@ export default function Dashboard() {
                 <CardHeader>
                   <CardTitle className="flex items-center text-lg font-medium">
                     <Database className="h-5 w-5 mr-2" />
-                    Recent Activity
+                    {t('recentActivity')}
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -187,8 +188,8 @@ export default function Dashboard() {
                         <FileText className="h-5 w-5 text-primary" />
                       </div>
                       <div className="space-y-1">
-                        <p className="text-sm font-medium">New record created</p>
-                        <p className="text-xs text-muted-foreground">In table: users</p>
+                        <p className="text-sm font-medium">{t('newRecordCreated')}</p>
+                        <p className="text-xs text-muted-foreground">{t('inTable')}: users</p>
                       </div>
                       <div className="ml-auto text-xs text-muted-foreground">2 min ago</div>
                     </div>
@@ -198,8 +199,8 @@ export default function Dashboard() {
                         <LayoutDashboard className="h-5 w-5 text-amber-500" />
                       </div>
                       <div className="space-y-1">
-                        <p className="text-sm font-medium">Table schema updated</p>
-                        <p className="text-xs text-muted-foreground">In table: products</p>
+                        <p className="text-sm font-medium">{t('tableSchemaUpdated')}</p>
+                        <p className="text-xs text-muted-foreground">{t('inTable')}: products</p>
                       </div>
                       <div className="ml-auto text-xs text-muted-foreground">1 hour ago</div>
                     </div>
@@ -209,8 +210,8 @@ export default function Dashboard() {
                         <Database className="h-5 w-5 text-emerald-500" />
                       </div>
                       <div className="space-y-1">
-                        <p className="text-sm font-medium">Records updated</p>
-                        <p className="text-xs text-muted-foreground">In table: orders</p>
+                        <p className="text-sm font-medium">{t('recordsUpdated')}</p>
+                        <p className="text-xs text-muted-foreground">{t('inTable')}: orders</p>
                       </div>
                       <div className="ml-auto text-xs text-muted-foreground">3 hours ago</div>
                     </div>
@@ -220,8 +221,8 @@ export default function Dashboard() {
                         <FileText className="h-5 w-5 text-destructive" />
                       </div>
                       <div className="space-y-1">
-                        <p className="text-sm font-medium">Records deleted</p>
-                        <p className="text-xs text-muted-foreground">In table: categories</p>
+                        <p className="text-sm font-medium">{t('recordsDeleted')}</p>
+                        <p className="text-xs text-muted-foreground">{t('inTable')}: categories</p>
                       </div>
                       <div className="ml-auto text-xs text-muted-foreground">1 day ago</div>
                     </div>

@@ -1,29 +1,28 @@
-
-import { useState, useEffect } from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
-import { 
-  LayoutDashboard, 
-  Database, 
-  Settings, 
-  HelpCircle, 
-  ChevronLeft, 
-  ChevronRight, 
-  Table2,
-  Globe
-} from 'lucide-react';
-import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { getTables, type TableInfo } from '@/lib/supabase';
-import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { useConfigStore } from '@/store/configStore';
+import { Separator } from '@/components/ui/separator';
+import { getTables, type TableInfo } from '@/lib/supabase';
 import { useTranslation } from '@/lib/translations';
+import { cn } from '@/lib/utils';
+import { useConfigStore } from '@/store/configStore';
+import {
+  ChevronLeft,
+  ChevronRight,
+  Database,
+  Globe,
+  HelpCircle,
+  LayoutDashboard,
+  Settings,
+  Table2
+} from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { NavLink, useLocation } from 'react-router-dom';
 
 export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const [tables, setTables] = useState<TableInfo[]>([]);
   const location = useLocation();
-  const { getTableDisplayName, language } = useConfigStore();
+  const { getTableDisplayName, language, hiddenTables } = useConfigStore();
   const { t } = useTranslation();
 
   useEffect(() => {
@@ -34,6 +33,9 @@ export function Sidebar() {
     
     loadTables();
   }, []);
+
+  // Filter out hidden tables
+  const visibleTables = tables.filter(table => !hiddenTables.includes(table.name));
 
   return (
     <div 
@@ -97,13 +99,13 @@ export function Sidebar() {
             
             {!collapsed && <Separator className="my-4" />}
             
-            {!collapsed && tables.length > 0 && (
+            {!collapsed && visibleTables.length > 0 && (
               <div className="mt-3">
                 <div className="px-3 mb-2 text-xs font-medium text-muted-foreground">
                   {t('tables')}
                 </div>
                 <nav className="space-y-1">
-                  {tables.map(table => (
+                  {visibleTables.map(table => (
                     <NavItem
                       key={table.name}
                       to={`/tables/${table.name}`}

@@ -1,17 +1,16 @@
-
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useConfigStore } from '@/store/configStore';
-import { useTranslation } from '@/lib/translations';
-import { Database, Globe, Server, ChevronRight, AlertCircle } from 'lucide-react';
-import { initializeSupabase } from '@/lib/supabase';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from '@/components/ui/use-toast';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { initializeSupabase } from '@/lib/supabase';
+import { useTranslation } from '@/lib/translations';
+import { useConfigStore } from '@/store/configStore';
+import { AlertCircle, ChevronRight, Database, Globe, Server } from 'lucide-react';
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 export function Onboarding() {
   const { t } = useTranslation();
@@ -26,8 +25,8 @@ export function Onboarding() {
   const handleConnect = async () => {
     if (!supabaseUrl || !supabaseKey) {
       toast({
-        title: 'Missing fields',
-        description: 'Please provide both Supabase URL and API key',
+        title: t('missingFields'),
+        description: t('provideCredentials'),
         variant: 'destructive',
       });
       return;
@@ -44,22 +43,22 @@ export function Onboarding() {
         setSupabaseConfig(supabaseUrl, supabaseKey);
         
         toast({
-          title: 'Connected successfully!',
-          description: 'Your Supabase instance is now connected.',
+          title: t('connectedSuccessfully'),
+          description: t('supabaseConnected'),
         });
         
         navigate('/');
       } else {
         toast({
-          title: 'Connection failed',
-          description: 'Unable to connect to Supabase with the provided credentials.',
+          title: t('connectionFailed'),
+          description: t('invalidCredentials'),
           variant: 'destructive',
         });
       }
     } catch (error) {
       toast({
-        title: 'Connection error',
-        description: 'An error occurred while trying to connect to Supabase.',
+        title: t('connectionError'),
+        description: t('connectionErrorDescription'),
         variant: 'destructive',
       });
     } finally {
@@ -100,7 +99,7 @@ export function Onboarding() {
               <Alert>
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>
-                  For self-hosted instances, you'll need to configure CORS in your Supabase server to allow requests from this origin. Add '{window.location.origin}' to your allowed origins.
+                  {t('selfHostedCorsWarning').replace('{origin}', window.location.origin)}
                 </AlertDescription>
               </Alert>
             )}

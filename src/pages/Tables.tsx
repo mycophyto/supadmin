@@ -1,32 +1,34 @@
-
+import { Sidebar } from '@/components/Sidebar';
+import { Button } from '@/components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle
+} from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Skeleton } from '@/components/ui/skeleton';
+import { getTables, type TableInfo } from '@/lib/supabase';
+import { useTranslation } from '@/lib/translations';
+import { useConfigStore } from '@/store/configStore';
+import {
+  ChevronRight,
+  Database,
+  FileText,
+  Plus,
+  Search
+} from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { getTables, type TableInfo } from '@/lib/supabase';
-import { Sidebar } from '@/components/Sidebar';
-import { 
-  Card, 
-  CardContent, 
-  CardDescription, 
-  CardFooter, 
-  CardHeader, 
-  CardTitle 
-} from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { 
-  Table, 
-  Database, 
-  Plus, 
-  Search, 
-  ChevronRight, 
-  FileText 
-} from 'lucide-react';
-import { Skeleton } from '@/components/ui/skeleton';
 
 export default function Tables() {
   const [tables, setTables] = useState<TableInfo[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const { hiddenTables } = useConfigStore();
+  const { t } = useTranslation();
   
   useEffect(() => {
     const loadTables = async () => {
@@ -42,10 +44,10 @@ export default function Tables() {
     loadTables();
   }, []);
   
-  // Filter tables based on search query
-  const filteredTables = tables.filter(
-    table => table.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Filter tables based on search query and hidden status
+  const filteredTables = tables
+    .filter(table => !hiddenTables.includes(table.name))
+    .filter(table => table.name.toLowerCase().includes(searchQuery.toLowerCase()));
   
   return (
     <div className="flex h-screen bg-background overflow-hidden">
@@ -56,9 +58,9 @@ export default function Tables() {
           <div className="space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
-                <h1 className="text-3xl font-bold tracking-tight">Tables</h1>
+                <h1 className="text-3xl font-bold tracking-tight">{t('tables')}</h1>
                 <p className="text-muted-foreground mt-1">
-                  Browse and manage your database tables
+                  {t('browseAndManageTables')}
                 </p>
               </div>
               
@@ -66,7 +68,7 @@ export default function Tables() {
                 <div className="relative w-full sm:w-72">
                   <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                   <Input
-                    placeholder="Search tables..."
+                    placeholder={t('searchTables')}
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="pl-9"
@@ -75,7 +77,7 @@ export default function Tables() {
                 
                 <Button className="sm:w-auto">
                   <Plus className="h-4 w-4 mr-2" />
-                  Create Table
+                  {t('createTable')}
                 </Button>
               </div>
             </div>
@@ -106,9 +108,9 @@ export default function Tables() {
               ) : filteredTables.length === 0 ? (
                 <div className="col-span-full flex flex-col items-center justify-center h-64 text-center">
                   <FileText className="h-12 w-12 text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-medium">No tables found</h3>
+                  <h3 className="text-lg font-medium">{t('noTablesFound')}</h3>
                   <p className="text-muted-foreground mt-1">
-                    {searchQuery ? 'Try with a different search term' : 'Create a new table to get started'}
+                    {searchQuery ? t('tryDifferentSearch') : t('createTableToStart')}
                   </p>
                   
                   {searchQuery && (
@@ -117,7 +119,7 @@ export default function Tables() {
                       className="mt-4"
                       onClick={() => setSearchQuery('')}
                     >
-                      Clear Search
+                      {t('clearSearch')}
                     </Button>
                   )}
                 </div>
@@ -130,7 +132,7 @@ export default function Tables() {
                     <CardHeader className="pb-2">
                       <CardTitle className="text-lg">{table.name}</CardTitle>
                       <CardDescription>
-                        {table.description || 'No description available'}
+                        {table.description || t('noDescription')}
                       </CardDescription>
                     </CardHeader>
                     <CardContent>
@@ -143,7 +145,7 @@ export default function Tables() {
                             {table.recordCount.toLocaleString()}
                           </p>
                           <p className="text-xs text-muted-foreground">
-                            Records
+                            {t('records')}
                           </p>
                         </div>
                       </div>
@@ -155,7 +157,7 @@ export default function Tables() {
                         className="w-full group-hover:bg-primary group-hover:text-primary-foreground transition-colors"
                       >
                         <Link to={`/tables/${table.name}`}>
-                          <span>View Table</span>
+                          <span>{t('viewTable')}</span>
                           <ChevronRight className="h-4 w-4 ml-2 transition-transform group-hover:translate-x-1" />
                         </Link>
                       </Button>
