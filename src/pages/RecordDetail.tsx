@@ -1,37 +1,6 @@
-
-import { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { FormModal } from '@/components/FormModal';
 import { Sidebar } from '@/components/Sidebar';
-import { 
-  Card, 
-  CardContent, 
-  CardHeader, 
-  CardTitle 
-} from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { 
-  ChevronLeft, 
-  Edit, 
-  Trash2, 
-  AlertCircle,
-  Clock,
-  ArrowUpDown
-} from 'lucide-react';
-import { 
-  Breadcrumb, 
-  BreadcrumbItem, 
-  BreadcrumbLink, 
-  BreadcrumbList, 
-  BreadcrumbSeparator 
-} from '@/components/ui/breadcrumb';
-import { 
-  Tabs, 
-  TabsContent, 
-  TabsList, 
-  TabsTrigger 
-} from '@/components/ui/tabs';
-import { Separator } from '@/components/ui/separator';
-import { 
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -41,9 +10,37 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { FormModal } from '@/components/FormModal';
-import { getTableSchema, deleteRecord } from '@/lib/supabase';
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbSeparator
+} from '@/components/ui/breadcrumb';
+import { Button } from '@/components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle
+} from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger
+} from '@/components/ui/tabs';
+import { deleteRecord, getTableSchema, supabase } from '@/lib/supabase';
+import {
+  AlertCircle,
+  ChevronLeft,
+  Clock,
+  Edit,
+  Trash2
+} from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 
 export default function RecordDetail() {
   const { tableName, id } = useParams<{ tableName: string; id: string }>();
@@ -66,20 +63,21 @@ export default function RecordDetail() {
         const schemaData = await getTableSchema(tableName);
         setSchema(schemaData);
         
-        // Then fetch the specific record
-        // In a real implementation, you would query the actual record from Supabase
-        // For now, we'll use mock data
-        setRecord({
-          id: id,
-          name: 'Example Name',
-          description: 'This is a detailed description of this record with all information that users might need.',
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          status: 'active',
-          price: 29.99,
-          category_id: 'c123456',
-          in_stock: true
-        });
+        // Fetch the specific record from Supabase
+        const { data, error } = await supabase
+          .from(tableName)
+          .select('*')
+          .eq('id', id)
+          .single();
+
+        if (error) {
+          throw error;
+        }
+
+        setRecord(data);
+      } catch (error) {
+        console.error('Error loading record:', error);
+        // Don't set record to null here, let the UI handle the error state
       } finally {
         setIsLoading(false);
       }
@@ -91,9 +89,12 @@ export default function RecordDetail() {
   const handleDelete = async () => {
     if (!tableName || !id) return;
     
-    const success = await deleteRecord(tableName, id);
-    if (success) {
+    try {
+      await deleteRecord(tableName, id);
       navigate(`/tables/${tableName}`);
+    } catch (error) {
+      console.error('Error deleting record:', error);
+      // You might want to show an error toast here
     }
   };
   

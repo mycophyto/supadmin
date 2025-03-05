@@ -96,7 +96,57 @@ type TranslationKey =
   | 'supabaseStorageConfigured'
   | 'configurationFailed'
   | 'localStorageError'
-  | 'supabaseStorageError';
+  | 'supabaseStorageError'
+  | 'connection.title'
+  | 'connection.description'
+  | 'connection.urlLabel'
+  | 'connection.urlPlaceholder'
+  | 'connection.keyLabel'
+  | 'connection.keyPlaceholder'
+  | 'connection.serviceKeyLabel'
+  | 'connection.serviceKeyPlaceholder'
+  | 'connection.connect'
+  | 'connection.connecting'
+  | 'connection.success'
+  | 'connection.successDescription'
+  | 'connection.failed'
+  | 'connection.invalidUrl'
+  | 'connection.invalidKey'
+  | 'connection.selfHostedWarning'
+  | 'connection.storageType'
+  | 'connection.localStorage'
+  | 'connection.supabaseStorage'
+  | 'connection.supabaseHosted'
+  | 'connection.selfHosted'
+  | 'connection.serviceKeyDescription'
+  | 'onboarding.title'
+  | 'onboarding.description'
+  | 'onboarding.instanceType'
+  | 'onboarding.storageType'
+  | 'onboarding.supabaseHosted'
+  | 'onboarding.selfHosted'
+  | 'onboarding.localStorage'
+  | 'onboarding.supabaseStorage'
+  | 'onboarding.urlLabel'
+  | 'onboarding.supabaseUrlPlaceholder'
+  | 'onboarding.selfHostedUrlPlaceholder'
+  | 'onboarding.keyLabel'
+  | 'onboarding.keyPlaceholder'
+  | 'onboarding.serviceKeyLabel'
+  | 'onboarding.serviceKeyPlaceholder'
+  | 'onboarding.serviceKeyDescription'
+  | 'onboarding.selfHostedWarning'
+  | 'onboarding.connect'
+  | 'onboarding.connecting'
+  | 'onboarding.errors.invalidUrl'
+  | 'onboarding.errors.invalidKey'
+  | 'onboarding.errors.serviceKeyRequired'
+  | 'onboarding.errors.connectionFailed'
+  | 'onboarding.success.title'
+  | 'onboarding.success.description'
+  | 'copy'
+  | 'copySQLInstructions'
+  | 'errorLoadingTable';
 
 const translations: Record<Language, Record<TranslationKey, string>> = {
   en: {
@@ -195,7 +245,57 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     supabaseStorageConfigured: 'Supabase storage configured successfully',
     configurationFailed: 'Configuration failed',
     localStorageError: 'Failed to configure local storage',
-    supabaseStorageError: 'Failed to configure Supabase storage'
+    supabaseStorageError: 'Failed to configure Supabase storage',
+    'connection.title': 'Connect to Supabase',
+    'connection.description': 'Enter your Supabase project details to get started',
+    'connection.urlLabel': 'Project URL',
+    'connection.urlPlaceholder': 'https://your-project.supabase.co or http://localhost:54321',
+    'connection.keyLabel': 'Anon Key',
+    'connection.keyPlaceholder': 'your-anon-key',
+    'connection.serviceKeyLabel': 'Service Role Key (Optional)',
+    'connection.serviceKeyPlaceholder': 'your-service-role-key',
+    'connection.connect': 'Connect',
+    'connection.connecting': 'Connecting...',
+    'connection.success': 'Connected Successfully',
+    'connection.successDescription': 'Your Supabase connection has been established.',
+    'connection.failed': 'Connection failed. Please check your credentials.',
+    'connection.invalidUrl': 'Please enter a valid URL',
+    'connection.invalidKey': 'Please enter a valid key',
+    'connection.selfHostedWarning': 'For self-hosted instances, make sure to enable CORS for {origin}',
+    'connection.storageType': 'Storage Type',
+    'connection.localStorage': 'Local Storage',
+    'connection.supabaseStorage': 'Supabase Storage',
+    'connection.supabaseHosted': 'Supabase Hosted',
+    'connection.selfHosted': 'Self Hosted',
+    'connection.serviceKeyDescription': 'Required for self-hosted instances with Supabase storage',
+    'onboarding.title': 'Welcome to AdminDB',
+    'onboarding.description': 'Connect to your Supabase instance to get started',
+    'onboarding.instanceType': 'Instance Type',
+    'onboarding.storageType': 'Storage Type',
+    'onboarding.supabaseHosted': 'Supabase Hosted',
+    'onboarding.selfHosted': 'Self Hosted',
+    'onboarding.localStorage': 'Local Storage',
+    'onboarding.supabaseStorage': 'Supabase Storage',
+    'onboarding.urlLabel': 'Project URL',
+    'onboarding.supabaseUrlPlaceholder': 'https://your-project.supabase.co',
+    'onboarding.selfHostedUrlPlaceholder': 'http://localhost:54321',
+    'onboarding.keyLabel': 'Anon Key',
+    'onboarding.keyPlaceholder': 'your-anon-key',
+    'onboarding.serviceKeyLabel': 'Service Role Key',
+    'onboarding.serviceKeyPlaceholder': 'your-service-role-key',
+    'onboarding.serviceKeyDescription': 'Required for self-hosted instances with Supabase storage',
+    'onboarding.selfHostedWarning': 'For self-hosted instances, make sure to enable CORS for {origin}',
+    'onboarding.connect': 'Connect',
+    'onboarding.connecting': 'Connecting...',
+    'onboarding.errors.invalidUrl': 'Please enter a valid URL',
+    'onboarding.errors.invalidKey': 'Please enter a valid key',
+    'onboarding.errors.serviceKeyRequired': 'Service role key is required for self-hosted instances with Supabase storage',
+    'onboarding.errors.connectionFailed': 'Connection failed. Please check your credentials.',
+    'onboarding.success.title': 'Connected Successfully',
+    'onboarding.success.description': 'Your Supabase connection has been established.',
+    copy: 'Copy',
+    copySQLInstructions: 'Copy SQL Instructions',
+    errorLoadingTable: 'Error loading table data',
   },
   fr: {
     dashboard: 'Tableau de bord',
@@ -293,7 +393,57 @@ const translations: Record<Language, Record<TranslationKey, string>> = {
     supabaseStorageConfigured: 'Stockage Supabase configuré avec succès',
     configurationFailed: 'Échec de la configuration',
     localStorageError: 'Échec de la configuration du stockage local',
-    supabaseStorageError: 'Échec de la configuration du stockage Supabase'
+    supabaseStorageError: 'Échec de la configuration du stockage Supabase',
+    'connection.title': 'Se connecter à Supabase',
+    'connection.description': 'Entrez les détails de votre projet Supabase pour commencer',
+    'connection.urlLabel': 'URL du projet',
+    'connection.urlPlaceholder': 'https://votre-projet.supabase.co ou http://localhost:54321',
+    'connection.keyLabel': 'Clé Anon',
+    'connection.keyPlaceholder': 'votre-clé-anon',
+    'connection.serviceKeyLabel': 'Clé Service Role (Optionnel)',
+    'connection.serviceKeyPlaceholder': 'votre-clé-service-role',
+    'connection.connect': 'Se connecter',
+    'connection.connecting': 'Connexion en cours...',
+    'connection.success': 'Connecté avec succès',
+    'connection.successDescription': 'Votre connexion Supabase a été établie.',
+    'connection.failed': 'Échec de la connexion. Vérifiez vos identifiants.',
+    'connection.invalidUrl': 'Veuillez entrer une URL valide',
+    'connection.invalidKey': 'Veuillez entrer une clé valide',
+    'connection.selfHostedWarning': 'Pour les instances auto-hébergées, assurez-vous d\'activer CORS pour {origin}',
+    'connection.storageType': 'Type de stockage',
+    'connection.localStorage': 'Stockage local',
+    'connection.supabaseStorage': 'Stockage Supabase',
+    'connection.supabaseHosted': 'Hébergé par Supabase',
+    'connection.selfHosted': 'Auto-hébergé',
+    'connection.serviceKeyDescription': 'Requis pour les instances auto-hébergées avec stockage Supabase',
+    'onboarding.title': 'Bienvenue sur AdminDB',
+    'onboarding.description': 'Connectez-vous à votre instance Supabase pour commencer',
+    'onboarding.instanceType': 'Type d\'instance',
+    'onboarding.storageType': 'Type de stockage',
+    'onboarding.supabaseHosted': 'Hébergé par Supabase',
+    'onboarding.selfHosted': 'Auto-hébergé',
+    'onboarding.localStorage': 'Stockage local',
+    'onboarding.supabaseStorage': 'Stockage Supabase',
+    'onboarding.urlLabel': 'URL du projet',
+    'onboarding.supabaseUrlPlaceholder': 'https://votre-projet.supabase.co',
+    'onboarding.selfHostedUrlPlaceholder': 'http://localhost:54321',
+    'onboarding.keyLabel': 'Clé Anon',
+    'onboarding.keyPlaceholder': 'votre-clé-anon',
+    'onboarding.serviceKeyLabel': 'Clé Service Role',
+    'onboarding.serviceKeyPlaceholder': 'votre-clé-service-role',
+    'onboarding.serviceKeyDescription': 'Requis pour les instances auto-hébergées avec stockage Supabase',
+    'onboarding.selfHostedWarning': 'Pour les instances auto-hébergées, assurez-vous d\'activer CORS pour {origin}',
+    'onboarding.connect': 'Se connecter',
+    'onboarding.connecting': 'Connexion en cours...',
+    'onboarding.errors.invalidUrl': 'Veuillez entrer une URL valide',
+    'onboarding.errors.invalidKey': 'Veuillez entrer une clé valide',
+    'onboarding.errors.serviceKeyRequired': 'La clé service role est requise pour les instances auto-hébergées avec stockage Supabase',
+    'onboarding.errors.connectionFailed': 'Échec de la connexion. Vérifiez vos identifiants.',
+    'onboarding.success.title': 'Connecté avec succès',
+    'onboarding.success.description': 'Votre connexion Supabase a été établie.',
+    copy: 'Copier',
+    copySQLInstructions: 'Copier les instructions SQL',
+    errorLoadingTable: 'Erreur lors de la chargement des données de la table',
   }
 };
 

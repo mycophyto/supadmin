@@ -11,12 +11,13 @@ import {
   SelectValue
 } from '@/components/ui/select';
 import { toast } from '@/components/ui/use-toast';
+import { getSetting, setSetting } from '@/lib/db';
 import { getTables } from '@/lib/supabase';
 import { useTranslation } from '@/lib/translations';
 import { Language, useConfigStore } from '@/store/configStore';
 import { useQuery } from '@tanstack/react-query';
 import { Database, Eye, EyeOff, Globe, Pencil } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 export default function Settings() {
   const { t } = useTranslation();
@@ -27,8 +28,6 @@ export default function Settings() {
     setTableDisplayName,
     hiddenTables,
     setHiddenTable,
-    supabaseConfig,
-    clearSupabaseConfig
   } = useConfigStore();
   
   const [editMode, setEditMode] = useState<Record<string, boolean>>({});
@@ -37,9 +36,47 @@ export default function Settings() {
     queryKey: ['tables'],
     queryFn: getTables,
   });
+
+  // Load settings from SQLite on component mount
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        const settings = await getSetting('app_settings');
+        if (settings) {
+          // Update the store with saved settings
+          if (settings.language) setLanguage(settings.language);
+          if (settings.tableDisplayNames) {
+            Object.entries(settings.tableDisplayNames).forEach(([key, value]) => {
+              setTableDisplayName(key, value as string);
+            });
+          }
+          if (settings.hiddenTables) {
+            settings.hiddenTables.forEach((table: string) => {
+              setHiddenTable(table, true);
+            });
+          }
+        }
+      } catch (error) {
+        console.error('Error loading settings:', error);
+      }
+    };
+
+    loadSettings();
+  }, [setLanguage, setTableDisplayName, setHiddenTable]);
   
-  const handleLanguageChange = (value: string) => {
+  const handleLanguageChange = async (value: string) => {
     setLanguage(value as Language);
+    
+    // Save to SQLite
+    try {
+      const currentSettings = await getSetting('app_settings') || {};
+      await setSetting('app_settings', {
+        ...currentSettings,
+        language: value
+      });
+    } catch (error) {
+      console.error('Error saving language setting:', error);
+    }
     
     toast({
       title: value === 'en' ? t('language') + ' updated' : t('language') + ' mise à jour',
@@ -56,9 +93,23 @@ export default function Settings() {
     }));
   };
   
-  const handleDisplayNameChange = (tableName: string, displayName: string) => {
+  const handleDisplayNameChange = async (tableName: string, displayName: string) => {
     setTableDisplayName(tableName, displayName);
     toggleEditMode(tableName);
+    
+    // Save to SQLite
+    try {
+      const currentSettings = await getSetting('app_settings') || {};
+      await setSetting('app_settings', {
+        ...currentSettings,
+        tableDisplayNames: {
+          ...currentSettings.tableDisplayNames,
+          [tableName]: displayName
+        }
+      });
+    } catch (error) {
+      console.error('Error saving table display name:', error);
+    }
     
     toast({
       title: t('save'),
@@ -66,19 +117,28 @@ export default function Settings() {
     });
   };
 
-  const handleVisibilityToggle = (tableName: string) => {
+  const handleVisibilityToggle = async (tableName: string) => {
+    const newHiddenTables = hiddenTables.includes(tableName)
+      ? hiddenTables.filter(t => t !== tableName)
+      : [...hiddenTables, tableName];
+    
     setHiddenTable(tableName, !hiddenTables.includes(tableName));
+    
+    // Save to SQLite
+    try {
+      const currentSettings = await getSetting('app_settings') || {};
+      await setSetting('app_settings', {
+        ...currentSettings,
+        hiddenTables: newHiddenTables
+      });
+    } catch (error) {
+      console.error('Error saving table visibility:', error);
+    }
+    
     toast({
       title: hiddenTables.includes(tableName) ? t('showTable') : t('hideTable'),
       description: tableName,
     });
-  };
-  
-  const handleDisconnect = () => {
-    if (confirm(t('confirmDelete'))) {
-      clearSupabaseConfig();
-      window.location.href = '/onboarding';
-    }
   };
   
   return (
@@ -118,40 +178,6 @@ export default function Settings() {
                         </SelectContent>
                       </Select>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-              
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center text-lg">
-                    <Database className="h-5 w-5 mr-2" />
-                    {t('connectToSupabase')}
-                  </CardTitle>
-                  <CardDescription>
-                    {supabaseConfig.isConfigured 
-                      ? supabaseConfig.url 
-                      : t('enterSupabaseCredentials')}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {supabaseConfig.isConfigured ? (
-                      <Button 
-                        variant="outline" 
-                        className="w-full"
-                        onClick={handleDisconnect}
-                      >
-                        {t('disconnect')}
-                      </Button>
-                    ) : (
-                      <Button 
-                        className="w-full"
-                        onClick={() => window.location.href = '/onboarding'}
-                      >
-                        {t('configure')}
-                      </Button>
-                    )}
                   </div>
                 </CardContent>
               </Card>

@@ -1,7 +1,7 @@
 import { Sidebar } from '@/components/Sidebar';
 import { StatCard } from '@/components/StatCard';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { getDatabaseStats, getTables, setupDatabaseFunctions } from '@/lib/supabase';
+import { getDatabaseStats, getTables } from '@/lib/supabase';
 import { useTranslation } from '@/lib/translations';
 import {
   BarChart,
@@ -37,9 +37,6 @@ export default function Dashboard() {
   useEffect(() => {
     const loadStats = async () => {
       setIsLoading(true);
-      
-      // Try to set up any required database functions
-      await setupDatabaseFunctions();
       
       // Load database stats and tables
       const dbStats = await getDatabaseStats();

@@ -1,4 +1,4 @@
-import { createSettingsTable, getSupabaseClient, initializeSupabase } from '@/lib/supabase';
+import { createSettingsTable, supabase } from '@/lib/supabase';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
@@ -13,12 +13,13 @@ export interface AppConfig {
   supabaseConfig: {
     url: string;
     key: string;
+    serviceKey?: string;
     isConfigured: boolean;
   };
   setLanguage: (language: Language) => void;
   setTableDisplayName: (tableName: string, displayName: string) => void;
   setHiddenTable: (tableName: string, hidden: boolean) => void;
-  setSupabaseConfig: (url: string, key: string) => Promise<void>;
+  setSupabaseConfig: (url: string, key: string, serviceKey?: string) => Promise<boolean>;
   setStorageType: (type: StorageType) => void;
   isSupabaseConfigured: () => boolean;
   clearSupabaseConfig: () => void;
@@ -36,6 +37,7 @@ export const useConfigStore = create<AppConfig>()(
       supabaseConfig: {
         url: '',
         key: '',
+        serviceKey: '',
         isConfigured: false,
       },
       setLanguage: async (language) => {
@@ -68,7 +70,10 @@ export const useConfigStore = create<AppConfig>()(
       setStorageType: async (type) => {
         if (type === 'supabase') {
           try {
+            // Create the settings table
             await createSettingsTable();
+            
+            // Finally sync with Supabase
             await get().syncWithSupabase();
           } catch (error) {
             console.error('Failed to setup Supabase storage:', error);
@@ -77,18 +82,24 @@ export const useConfigStore = create<AppConfig>()(
         }
         set({ storageType: type });
       },
-      setSupabaseConfig: async (url, key) => {
-        const success = await initializeSupabase(url, key);
-        if (success) {
+      setSupabaseConfig: async (url, key, serviceKey) => {
+        try {
+          // Test the connection by making a simple query
+          const { error } = await supabase.from('supadmin_settings').select('count');
+          if (error) throw error;
+          
           set({
             supabaseConfig: {
               url,
               key,
+              serviceKey,
               isConfigured: true,
             },
           });
-        } else {
-          throw new Error('Failed to initialize Supabase client');
+          return true;
+        } catch (error) {
+          console.error('Failed to initialize Supabase:', error);
+          return false;
         }
       },
       isSupabaseConfigured: () => get().supabaseConfig.isConfigured,
@@ -97,6 +108,7 @@ export const useConfigStore = create<AppConfig>()(
           supabaseConfig: {
             url: '',
             key: '',
+            serviceKey: '',
             isConfigured: false,
           },
         }),
@@ -105,20 +117,44 @@ export const useConfigStore = create<AppConfig>()(
       },
       syncWithSupabase: async () => {
         const state = get();
-        const supabase = getSupabaseClient();
-        const { error } = await supabase
-          .from('app_settings')
-          .upsert({
-            key: 'app_config',
-            value: {
-              language: state.language,
-              tableDisplayNames: state.tableDisplayNames,
-              hiddenTables: state.hiddenTables,
-            }
-          });
         
-        if (error) {
+        try {
+          // First try to update the existing record
+          const { error: updateError } = await supabase
+            .from('supadmin_settings')
+            .update({
+              value: {
+                language: state.language,
+                tableDisplayNames: state.tableDisplayNames,
+                hiddenTables: state.hiddenTables,
+              }
+            })
+            .eq('key', 'app_config');
+
+          // If no record exists (updateError.code === 'PGRST116'), insert a new one
+          if (updateError?.code === 'PGRST116') {
+            const { error: insertError } = await supabase
+              .from('supadmin_settings')
+              .insert({
+                key: 'app_config',
+                value: {
+                  language: state.language,
+                  tableDisplayNames: state.tableDisplayNames,
+                  hiddenTables: state.hiddenTables,
+                }
+              });
+
+            if (insertError) {
+              console.error('Failed to insert settings:', insertError);
+              throw insertError;
+            }
+          } else if (updateError) {
+            console.error('Failed to update settings:', updateError);
+            throw updateError;
+          }
+        } catch (error) {
           console.error('Failed to sync with Supabase:', error);
+          throw error;
         }
       },
     }),

@@ -1,26 +1,25 @@
-
-import { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { 
-  getTableSchema, 
-  getTableData, 
-  type TableField
-} from '@/lib/supabase';
-import { Sidebar } from '@/components/Sidebar';
 import { DataTable } from '@/components/DataTable';
 import { FormModal } from '@/components/FormModal';
-import { Button } from '@/components/ui/button';
-import { ChevronLeft, PlusCircle, Database, TableProperties } from 'lucide-react';
-import { 
-  Breadcrumb, 
-  BreadcrumbItem, 
-  BreadcrumbLink, 
-  BreadcrumbList, 
-  BreadcrumbSeparator 
+import { Sidebar } from '@/components/Sidebar';
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbSeparator
 } from '@/components/ui/breadcrumb';
+import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useConfigStore } from '@/store/configStore';
+import {
+  getTableData,
+  getTableSchema,
+  type TableField
+} from '@/lib/supabase';
 import { useTranslation } from '@/lib/translations';
+import { useConfigStore } from '@/store/configStore';
+import { ChevronLeft, Database, PlusCircle, TableProperties } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 
 export default function TableView() {
   const { tableName } = useParams<{ tableName: string }>();
@@ -35,12 +34,14 @@ export default function TableView() {
   const [pageSize] = useState(10);
   const [isLoading, setIsLoading] = useState(true);
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   
   useEffect(() => {
     if (!tableName) return;
     
     const loadSchemaAndData = async () => {
       setIsLoading(true);
+      setError(null);
       
       try {
         // Load schema first
@@ -48,16 +49,19 @@ export default function TableView() {
         setSchema(schemaData);
         
         // Then load table data
-        const { data, count } = await getTableData(tableName, currentPage, pageSize);
-        setData(data);
-        setTotalCount(count);
+        const { data, total } = await getTableData(tableName, currentPage, pageSize);
+        setData(data || []);
+        setTotalCount(total || 0);
+      } catch (err) {
+        console.error('Error loading table data:', err);
+        setError(err instanceof Error ? err.message : t('errorLoadingTable'));
       } finally {
         setIsLoading(false);
       }
     };
     
     loadSchemaAndData();
-  }, [tableName, currentPage, pageSize]);
+  }, [tableName, currentPage, pageSize, t]);
   
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
@@ -67,10 +71,14 @@ export default function TableView() {
     if (!tableName) return;
     
     setIsLoading(true);
+    setError(null);
     try {
-      const { data, count } = await getTableData(tableName, currentPage, pageSize);
-      setData(data);
-      setTotalCount(count);
+      const { data, total } = await getTableData(tableName, currentPage, pageSize);
+      setData(data || []);
+      setTotalCount(total || 0);
+    } catch (err) {
+      console.error('Error refreshing table data:', err);
+      setError(err instanceof Error ? err.message : t('errorLoadingTable'));
     } finally {
       setIsLoading(false);
     }
@@ -137,6 +145,13 @@ export default function TableView() {
                     <div>
                       <Skeleton className="h-8 w-48 mb-1" />
                       <Skeleton className="h-5 w-72" />
+                    </div>
+                  ) : error ? (
+                    <div>
+                      <h1 className="text-3xl font-bold tracking-tight text-destructive">{tableDisplayName}</h1>
+                      <p className="text-muted-foreground mt-1">
+                        {error}
+                      </p>
                     </div>
                   ) : (
                     <div>

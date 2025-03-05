@@ -1,69 +1,60 @@
-# Welcome to your Lovable project
+# AdminDB
 
-## Project info
+A modern database management interface for Supabase.
 
-**URL**: https://lovable.dev/projects/09be2360-8f4e-461b-afd6-382f988352b7
+## Features
 
-## How can I edit this code?
+- Browse and manage your Supabase database tables
+- View and edit table records
+- Customize table display names and visibility
+- Multi-language support (English and French)
+- Settings persistence using SQLite
+- Modern and responsive UI
 
-There are several ways of editing your application.
+## Getting Started
 
-**Use Lovable**
+1. Clone the repository
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+3. Copy the environment variables template:
+   ```bash
+   cp .env.example .env
+   ```
+4. Update the `.env` file with your Supabase credentials:
+   - `VITE_SUPABASE_URL`: Your Supabase project URL
+   - `VITE_SUPABASE_ANON_KEY`: Your Supabase project's anon/public key
+   - `VITE_SUPABASE_SERVICE_KEY`: Your Supabase project's service role key
+     (optional)
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/09be2360-8f4e-461b-afd6-382f988352b7) and start prompting.
+5. Start the development server:
+   ```bash
+   npm run dev
+   ```
 
-Changes made via Lovable will be committed automatically to this repo.
+## Environment Variables
 
-**Use your preferred IDE**
+The following environment variables are required:
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+- `VITE_SUPABASE_URL`: Your Supabase project URL (e.g.,
+  https://your-project.supabase.co)
+- `VITE_SUPABASE_ANON_KEY`: Your Supabase project's anon/public key
+- `VITE_SUPABASE_SERVICE_KEY`: Your Supabase project's service role key
+  (optional, but recommended for full functionality)
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+## Settings Storage
 
-Follow these steps:
+The application uses SQLite to store user settings locally. The database file is
+created automatically in the user's application data directory.
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+## Development
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+- Built with React + Vite
+- Uses TypeScript for type safety
+- Styled with Tailwind CSS
+- Uses Shadcn UI components
 
-# Step 3: Install the necessary dependencies.
-npm i
+## License
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
-```
-
-**Edit a file directly in GitHub**
-
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
-
-**Use GitHub Codespaces**
-
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
-
-## What technologies are used for this project?
-
-This project is built with .
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/09be2360-8f4e-461b-afd6-382f988352b7) and click on Share -> Publish.
-
-## I want to use a custom domain - is that possible?
-
-We don't support custom domains (yet). If you want to deploy your project under your own domain then we recommend using Netlify. Visit our docs for more details: [Custom domains](https://docs.lovable.dev/tips-tricks/custom-domain/)
+MIT
